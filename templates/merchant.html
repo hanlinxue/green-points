@@ -1,0 +1,80 @@
+<!-- 商户管理界面：商品上架、订单处理、提现 -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>商户中心 - GreenPoints</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body onload="initMerchantDashboard()">
+  <div class="dashboard">
+    <nav class="dash-nav">
+      <div class="brand">商户中心</div>
+      <a href="#" class="active">商品管理</a>
+      <a href="merchant_orders.html">订单处理</a>
+      <a href="merchant_withdraw.html">积分提现</a>
+      <a href="index.html">退出登录</a>
+    </nav>
+
+    <div class="dash-main">
+      <div class="dash-header">
+        <div>
+          <h1>商品管理</h1>
+          <p>上架绿色商品，设置积分兑换规则，获取更多曝光。</p>
+        </div>
+        <button class="btn-outline" onclick="fetchMerchantProducts()">刷新</button>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card hover-lift">
+          <span>可兑换积分</span>
+          <strong id="merchantMetricPoints">—</strong>
+          <p style="color:var(--muted);margin-top:6px;">可提现积分总额</p>
+        </div>
+        <div class="stat-card hover-lift">
+          <span>上架商品</span>
+          <strong id="merchantMetricProducts">0</strong>
+          <p style="color:var(--muted);margin-top:6px;">已上架的商品数量</p>
+        </div>
+        <div class="stat-card hover-lift">
+          <span>待处理订单</span>
+          <strong id="merchantMetricOrders">0</strong>
+          <p style="color:var(--muted);margin-top:6px;">需要发货的订单</p>
+        </div>
+      </div>
+
+      <div class="panel hover-lift">
+        <div class="panel-header">
+          <h2>新增商品</h2>
+          <span class="pill">绿色商品优先推荐</span>
+        </div>
+        <form id="mp_form" onsubmit="event.preventDefault(); createMerchantProduct();">
+          <div class="input-group">
+            <label for="mp_name">商品名称</label>
+            <input id="mp_name" class="input" placeholder="例如：有机蔬菜礼盒">
+            
+            <label for="mp_price">市场价（元）</label>
+            <input id="mp_price" type="number" step="0.01" class="input" placeholder="商品实际售价">
+            
+            <label for="mp_points">兑换积分</label>
+            <input id="mp_points" type="number" class="input" placeholder="兑换所需积分">
+            
+            <label for="mp_desc">商品描述</label>
+            <textarea id="mp_desc" class="input" placeholder="商品详情，突出绿色环保特性"></textarea>
+          </div>
+          <button type="submit" class="btn">上架商品</button>
+        </form>
+      </div>
+
+      <div class="panel hover-lift">
+        <div class="panel-header">
+          <h2>我的商品</h2>
+        </div>
+        <div id="merchantProductList" class="product-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
