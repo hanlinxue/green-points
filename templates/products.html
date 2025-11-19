@@ -1,0 +1,40 @@
+<!-- 用户浏览商品并用积分兑换 -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>积分商城 - GreenPoints</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body onload="initProductsPage()">
+  <div class="dashboard">
+    <nav class="dash-nav">
+      <div class="brand">GreenPoints 商城</div>
+      <a href="#" class="active">全部商品</a>
+      <a href="user_profile.html">个人中心</a>
+      <a href="user_trip.html">提交出行</a>
+      <a href="index.html">退出登录</a>
+    </nav>
+
+    <section class="dash-main">
+      <div class="dash-header">
+        <div>
+          <h1>积分兑换商城</h1>
+          <p>精选绿色合作商户，积分扣减后生成订单并同步通知商户。</p>
+        </div>
+        <button class="btn-outline" onclick="fetchProducts()">刷新列表</button>
+      </div>
+
+      <div class="panel hover-lift">
+        <div class="panel-header">
+          <h2>绿色精选商品</h2>
+          <span class="pill">积分实时扣减</span>
+        </div>
+        <div id="productList" class="product-grid"></div>
+      </div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
