@@ -1,32 +1,57 @@
 <!-- 注册页面 -->
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
-    <title>注册新账号</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <title>注册 - GreenPoints</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="card">
-    <h2>注册账号</h2>
+  <div class="eco-shell">
+    <aside class="eco-illustration">
+      <div class="illustration-content">
+        <h1>绿行注册</h1>
+        <p>选择身份，即刻开启绿色出行或绿色经营。</p>
+        <div class="badge-row">
+          <span class="badge-soft">用户积分</span>
+          <span class="badge-soft">商户提现</span>
+        </div>
+        <div class="wave-animation"></div>
+      </div>
+    </aside>
 
-    <select id="role">
-        <option value="user">用户</option>
-        <option value="merchant">商户</option>
-    </select>
+    <section class="eco-form">
+      <div class="form-header">
+        <h2>创建新账号</h2>
+        <p>系统将根据身份自动生成以 U / M 开头的唯一账号。</p>
+      </div>
+      
+      <div class="input-group">
+        <label for="role">注册身份</label>
+        <select id="role" class="input">
+          <option value="user">用户</option>
+          <option value="merchant">商户</option>
+        </select>
 
-    <input id="email" placeholder="邮箱">
-    <input id="phone" placeholder="手机号">
-    <input id="password" placeholder="密码" type="password">
+        <label for="email">邮箱</label>
+        <input id="email" class="input" placeholder="用于接收通知">
 
-    <button onclick="register()">注册</button>
+        <label for="phone">手机号</label>
+        <input id="phone" class="input" placeholder="请输入手机号">
 
-    <p style="margin-top:15px;text-align:center;">系统生成账号：
-        <b id="generatedId" style="color:#4a63f7;"></b>
-    </p>
+        <label for="password">设置密码</label>
+        <input id="password" class="input" type="password" placeholder="至少 6 位，建议包含字母数字">
+      </div>
 
-    <a class="link" href="index.html">返回登录</a>
-</div>
+      <div class="generated-id">
+        系统生成账号： <b id="generatedId" style="color:#008f64;font-size:18px;"></b>
+      </div>
 
-<script src="script.js"></script>
+      <button class="btn" onclick="register()">提交注册</button>
+      <p style="text-align:center;margin-top:16px;"><a class="link" href="index.html">返回登录</a></p>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
