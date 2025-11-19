@@ -1,23 +1,39 @@
 <!-- 重设密码页面 -->
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
-    <title>重设密码</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <title>重设密码 - GreenPoints</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="card">
-    <h2>重设密码</h2>
+  <div class="eco-shell">
+    <aside class="eco-illustration">
+      <div class="illustration-content">
+        <h1>重设密码</h1>
+        <p>请输入收到的验证码并设置新的登录密码。</p>
+        <div class="badge-row">
+          <span class="badge-soft">验证码</span>
+          <span class="badge-soft">安全校验</span>
+        </div>
+        <div class="wave-animation"></div>
+      </div>
+    </aside>
 
-    <input id="rp_id" placeholder="账号">
-    <input id="rp_code" placeholder="验证码">
-    <input id="rp_newpwd" placeholder="新密码" type="password">
+    <section class="eco-form">
+      <div class="form-header">
+        <h2>填写信息</h2>
+      </div>
+      <div class="input-group">
+        <input id="rp_id" class="input" placeholder="账号">
+        <input id="rp_code" class="input" placeholder="验证码">
+        <input id="rp_newpwd" type="password" class="input" placeholder="新密码">
+      </div>
+      <button class="btn" onclick="resetPassword()">提交</button>
+      <p style="text-align:center;margin-top:12px;"><a class="link" href="index.html">返回登录</a></p>
+    </section>
+  </div>
 
-    <button onclick="resetPassword()">提交</button>
-
-    <a class="link" href="index.html">返回登录</a>
-</div>
-
-<script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
