@@ -1,0 +1,117 @@
+<!-- 用户出行记录提交页面 -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>提交出行记录 - GreenPoints</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* 新增样式调整 */
+    .eco-shell {
+      display: flex;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .eco-illustration {
+      width: 45%; 
+      min-height: 600px; 
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #52e6b0,#70d5ff 100%);
+      color: #fff;
+      padding: 40px;
+      box-sizing: border-box;
+    }
+    .eco-form {
+      width: 55%; 
+      padding: 40px;
+      box-sizing: border-box;
+    }
+    .illustration-content {
+      text-align: center;
+      width: 100%;
+    }
+    .illustration-content h1 {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+    }
+    .illustration-content p {
+      font-size: 1.1rem;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+    .badge-row {
+      margin-bottom: 40px;
+    }
+    .badge-soft {
+      display: inline-block;
+      margin: 0 8px 10px;
+      padding: 8px 16px;
+      background:rgba(255,255,255,.22);
+      border-radius: 20px;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body onload="initUserTripPage()">
+  <div class="eco-shell">
+    <aside class="eco-illustration">
+      <div class="illustration-content">
+        <h1>出行记录</h1>
+        <p>真实记录、管理员审核、积分即时到账。</p>
+        <div class="badge-row">
+          <span class="badge-soft">步行骑行</span>
+          <span class="badge-soft">公共交通</span>
+          <span class="badge-soft">周期统计</span>
+        </div>
+        <div class="wave-animation"></div>
+      </div>
+    </aside>
+
+    <section class="eco-form">
+      <div class="form-header">
+        <h2>提交出行记录</h2>
+        <p>请填写真实的周期、方式与里程，提交后等待管理员审核。</p>
+      </div>
+      <form id="trip_form" onsubmit="event.preventDefault(); submitTrip();">
+        <div class="input-group">
+          <label for="trip_period">出行周期</label>
+          <input id="trip_period" class="input" placeholder="如：2025-11-01 ~ 2025-11-07">
+
+          <label for="trip_mode">出行方式</label>
+          <select id="trip_mode" class="input">
+            <option value="walk">步行</option>
+            <option value="bike">自行车</option>
+            <option value="public_transit">公共交通</option>
+            <option value="car">汽车</option>
+          </select>
+
+          <label for="trip_distance">里程（公里）</label>
+          <input id="trip_distance" type="number" step="0.1" class="input" placeholder="请输入里程，例：3.5">
+
+          <label for="trip_note">备注（可选）</label>
+          <textarea id="trip_note" class="input" placeholder="路线、出行目的等"></textarea>
+        </div>
+
+        <button type="submit" class="btn">提交记录</button>
+      </form>
+    </section>
+  </div>
+
+  <div class="trip-note" style="max-width:1100px;margin:24px auto;">
+    <p class="eyebrow">审核须知</p>
+    <ul>
+      <li>• 数据需真实有效，重复或异常记录将被驳回。</li>
+      <li>• 积分 = 出行方式权重 × 里程数。</li>
+      <li>• 系统保留最近 1 个月记录，便于复查。</li>
+    </ul>
+    <p style="margin-top:14px;">如需返回首页，可点击 <a href="index.html" class="link">重新登录</a></p>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
