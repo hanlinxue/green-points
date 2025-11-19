@@ -1,0 +1,72 @@
+<!-- 管理员审核界面：审核出行 & 审批商户提现 -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>管理员 - 审核中心</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body onload="initAdminReview()">
+  <div class="dashboard">
+    <nav class="dash-nav">
+      <div class="brand">绿色出行管理平台</div>
+      <a href="#" class="active">审核中心 <span>●</span></a>
+      <a href="admin_users.html">用户管理</a>
+      <a href="index.html">退出登录</a>
+    </nav>
+
+    <div class="dash-main">
+      <div class="dash-header">
+        <div>
+          <h1>审核控制台</h1>
+          <p>实时处理出行、提现与积分流转，保证绿色积分安全。</p>
+        </div>
+        <span class="pill pulse">在线 · 审核中</span>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card hover-lift">
+          <span>待审核出行</span>
+          <strong id="metricPendingTrips">—</strong>
+          <p style="color:var(--muted);margin-top:6px;">来自用户的待处理记录</p>
+        </div>
+        <div class="stat-card hover-lift">
+          <span>提现申请</span>
+          <strong id="metricWithdrawals">—</strong>
+          <p style="color:var(--muted);margin-top:6px;">商户积分兑换现金</p>
+        </div>
+        <div class="stat-card hover-lift">
+          <span>积分波动</span>
+          <strong id="metricPoints">—</strong>
+          <p style="color:var(--muted);margin-top:6px;">今日积分总变化</p>
+        </div>
+      </div>
+
+      <div class="panel hover-lift">
+        <div class="panel-header">
+          <h2>待审核出行记录</h2>
+          <span class="pill">优先处理</span>
+        </div>
+        <div id="pendingTrips" class="scroll-container"></div>
+      </div>
+
+      <div class="panel hover-lift">
+        <div class="panel-header">
+          <h2>商户提现申请</h2>
+          <span class="pill orange">需 1 个工作日</span>
+        </div>
+        <div id="withdrawalRequests" class="scroll-container"></div>
+      </div>
+
+      <div class="panel hover-lift">
+        <div class="panel-header">
+          <h2>积分流转记录</h2>
+        </div>
+        <div id="pointRecords" class="scroll-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
