@@ -1,23 +1,42 @@
 <!-- 忘记密码页面 -->
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
-    <title>忘记密码</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <title>找回密码 - GreenPoints</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="card">
-    <h2>找回密码</h2>
+  <div class="eco-shell">
+    <aside class="eco-illustration">
+      <div class="illustration-content">
+        <h1>邮箱验证</h1>
+        <p>输入账号与注册邮箱，系统将在 10 分钟内发送验证码。</p>
+        <div class="badge-row">
+          <span class="badge-soft">安全保护</span>
+          <span class="badge-soft">验证码</span>
+        </div>
+        <div class="wave-animation"></div>
+      </div>
+    </aside>
 
-    <input id="fp_id" placeholder="账号">
-    <input id="fp_email" placeholder="注册邮箱">
+    <section class="eco-form">
+      <div class="form-header">
+        <h2>找回密码</h2>
+        <p>确保邮箱可正常接收邮件，验证码用于重置密码。</p>
+      </div>
+      <div class="input-group">
+        <input id="fp_id" class="input" placeholder="账号">
+        <input id="fp_email" class="input" placeholder="注册邮箱">
+      </div>
+      <button id="sendCodeBtn" class="btn" onclick="sendCode()">发送验证码</button>
+      <div class="form-links">
+        <a href="reset.html" class="link">我已收到验证码 →</a>
+        <a href="index.html" class="link">返回登录</a>
+      </div>
+    </section>
+  </div>
 
-    <button id="sendCodeBtn" onclick="sendCode()">发送验证码</button>
-
-    <a class="link" href="reset.html">我已收到验证码 →</a>
-    <a class="link" href="index.html">返回登录</a>
-</div>
-
-<script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
