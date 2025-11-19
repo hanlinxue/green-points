@@ -1,0 +1,32 @@
+<!-- 注册页面 -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>注册新账号</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="card">
+    <h2>注册账号</h2>
+
+    <select id="role">
+        <option value="user">用户</option>
+        <option value="merchant">商户</option>
+    </select>
+
+    <input id="email" placeholder="邮箱">
+    <input id="phone" placeholder="手机号">
+    <input id="password" placeholder="密码" type="password">
+
+    <button onclick="register()">注册</button>
+
+    <p style="margin-top:15px;text-align:center;">系统生成账号：
+        <b id="generatedId" style="color:#4a63f7;"></b>
+    </p>
+
+    <a class="link" href="index.html">返回登录</a>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

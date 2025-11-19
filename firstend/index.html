@@ -1,0 +1,28 @@
+<!-- 登录页面 -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>登录</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="card">
+    <h2>系统登录</h2>
+
+    <input id="login_id" placeholder="账号">
+    <input id="login_password" placeholder="密码" type="password">
+
+    <label style="display:flex;align-items:center;margin-top:10px;font-size:14px; white-space: nowrap;">
+        <input type="checkbox" id="rememberMe" style="margin-right:6px;">
+        记住我
+    </label>
+
+    <button onclick="login()">登录</button>
+
+    <a class="link" href="register.html">没有账号？去注册</a>
+    <a class="link" href="forgot.html">忘记密码？</a>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
