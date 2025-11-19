@@ -1,28 +1,49 @@
 <!-- 登录页面 -->
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
-    <title>登录</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <title>登录 - GreenPoints</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="card">
-    <h2>系统登录</h2>
+  <div class="eco-shell">
+    <aside class="eco-illustration">
+      <div class="illustration-content">
+        <h1>绿行积分</h1>
+        <p>加入“晋碳行”，记录低碳出行，随时获取积分并兑换绿色福利。</p>
+        <div class="badge-row">
+          <span class="badge-soft">出行积分</span>
+          <span class="badge-soft">实时审核</span>
+          <span class="badge-soft">积分商城</span>
+        </div>
+        <div class="wave-animation"></div>
+      </div>
+    </aside>
 
-    <input id="login_id" placeholder="账号">
-    <input id="login_password" placeholder="密码" type="password">
+    <section class="eco-form">
+      <div class="form-header">
+        <h2>用户登录</h2>
+        <p>支持用户、商户、管理员账号，凭证一致即可登录。</p>
+      </div>
+      <div class="input-group">
+        <input id="login_id" class="input" placeholder="账号 / 用户ID">
+        <input id="login_password" type="password" class="input" placeholder="密码">
+      </div>
+      <div class="form-actions">
+        <label style="font-weight:600;color:#1d2a41">
+          <input id="rememberMe" type="checkbox" style="margin-right:8px;">记住我
+        </label>
+        <a href="forgot.html" class="link" style="font-size:14px;">忘记密码？</a>
+      </div>
+      <button class="btn" onclick="login()">立即登录</button>
+      <p style="text-align:center;margin-top:18px;font-size:14px;color:#5b6375;">
+        还没有账号？<a href="register.html" class="link">立即注册</a>
+      </p>
+    </section>
+  </div>
 
-    <label style="display:flex;align-items:center;margin-top:10px;font-size:14px; white-space: nowrap;">
-        <input type="checkbox" id="rememberMe" style="margin-right:6px;">
-        记住我
-    </label>
-
-    <button onclick="login()">登录</button>
-
-    <a class="link" href="register.html">没有账号？去注册</a>
-    <a class="link" href="forgot.html">忘记密码？</a>
-</div>
-
-<script src="script.js"></script>
+  <script src="script.js"></script>
+  <script>initLoginPage();</script>
 </body>
 </html>
