@@ -22,7 +22,7 @@ body{
   color:var(--text);
   background:linear-gradient(180deg,var(--bg-sky) 0%,var(--bg-ground) 60%,#fff 100%);
   background-attachment:fixed;
-  background-image: url('绿色出行.jpg');
+  background-image: url('../../绿色出行.jpg');
   background-size: cover;    /* 让背景图片自动缩放以覆盖整个页面 */
   background-position: center center; /* 让图片居中 */
   background-repeat: no-repeat; /* 防止背景图片重复 */
