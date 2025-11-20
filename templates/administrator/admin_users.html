@@ -1,0 +1,100 @@
+<!-- 账户管理 -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>账户管理 - 管理后台</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body onload="initAdminUsers()">
+
+  <div class="dashboard">
+
+    <!-- 左侧导航 -->
+    <nav class="dash-nav">
+      <div class="brand">绿色出行管理平台</div>
+      <a href="admin.html">审核中心</a>
+      <a class="active" href="#">账户管理</a>
+      <a href="point_roles.html">积分兑换规则</a>
+      <a href="index.html">退出登录</a>
+    </nav>
+
+    <div class="dash-main">
+
+      <div class="dash-header">
+        <div>
+          <h1>账户管理</h1>
+          <p>管理系统中的用户与商户账户，支持冻结、解冻与删除操作。</p>
+        </div>
+        <span class="pill pulse">管理员模式</span>
+      </div>
+
+      <!-- 切换 Tab -->
+      <div class="panel">
+        <div class="tab-row">
+          <button class="tab-btn active" onclick="switchUserTab('user')">用户列表</button>
+          <button class="tab-btn" onclick="switchUserTab('merchant')">商户列表</button>
+        </div>
+      </div>
+
+      <!-- 搜索框 -->
+      <div class="panel hover-lift">
+        <div class="panel-header">
+          <h2>搜索账户</h2>
+        </div>
+        <input id="searchInput" class="input" placeholder="输入用户名 / 商户名 / 电话 / 邮箱…" oninput="filterAccountList()">
+      </div>
+
+      <!-- 用户列表 -->
+      <div id="userPanel" class="panel hover-lift">
+        <div class="panel-header">
+          <h2>用户账户</h2>
+          <span class="pill">系统普通用户</span>
+        </div>
+
+        <table class="nice-table">
+          <thead>
+            <tr>
+              <th>用户名</th>
+              <th>邮箱</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+
+          <tbody id="userTable">
+            <!-- JS 渲染 -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 商户列表 -->
+      <div id="merchantPanel" class="panel hover-lift" style="display:none;">
+        <div class="panel-header">
+          <h2>商户账户</h2>
+          <span class="pill orange">包含待审核商户</span>
+        </div>
+
+        <table class="nice-table">
+          <thead>
+            <tr>
+              <th>商户名称</th>
+              <th>联系方式</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+
+          <tbody id="merchantTable">
+            <!-- JS 渲染 -->
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
