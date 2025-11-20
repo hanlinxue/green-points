@@ -548,7 +548,6 @@ function filterAccountList() {
 
 /* ============================================================
    用户个人中心（user_profile.html）新增 JS
-   与原有系统完全兼容，不覆盖你已有的 API 逻辑
    ============================================================ */
 
 /* ----- 1. 页面初始化 ----- */
@@ -679,7 +678,131 @@ function changePassword() {
     });
 }
 
+// 用来获取订单列表并显示
+function fetchOrders() {
+  // 假设有一个接口可以获取待处理的订单
+  fetch('/api/get-orders') 
+    .then(response => response.json())
+    .then(data => {
+      const orderListContainer = document.getElementById('orderList');
+      orderListContainer.innerHTML = ''; // 清空现有内容
+      data.orders.forEach(order => {
+        const orderElement = document.createElement('div');
+        orderElement.className = 'order-card';
+        orderElement.innerHTML = `
+          <div class="order-summary">
+            <p><strong>用户ID：</strong>${order.userId}</p>
+            <p><strong>商品：</strong>${order.productName}</p>
+            <p><strong>订单地址：</strong>${order.address}</p>
+          </div>
+          <button class="btn" onclick="viewOrderDetails(${order.id})">查看详情</button>
+        `;
+        orderListContainer.appendChild(orderElement);
+      });
+    })
+    .catch(error => console.error('Error fetching orders:', error));
+}
 
+// 查看订单详情
+function viewOrderDetails(orderId) {
+  // 假设有一个接口可以获取订单的详细信息
+  fetch(`/api/get-order-details/${orderId}`)
+    .then(response => response.json())
+    .then(data => {
+      const orderDetailsContainer = document.getElementById('orderDetails');
+      orderDetailsContainer.innerHTML = `
+        <p><strong>用户ID：</strong>${data.order.userId}</p>
+        <p><strong>商品：</strong>${data.order.productName}</p>
+        <p><strong>订单地址：</strong>${data.order.address}</p>
+        <p><strong>订单状态：</strong>${data.order.status}</p>
+        <button class="btn" onclick="processOrder(${data.order.id})">处理订单</button>
+      `;
+    })
+    .catch(error => console.error('Error fetching order details:', error));
+}
+
+// 处理订单
+function processOrder(orderId) {
+  // 假设有一个接口可以处理订单（比如标记订单为已处理）
+  fetch(`/api/process-order/${orderId}`, {
+    method: 'POST',
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert('订单已处理');
+      fetchOrders(); // 刷新订单列表
+    } else {
+      alert('订单处理失败');
+    }
+  })
+  .catch(error => console.error('Error processing order:', error));
+}
+
+// 获取商家的积分余额和兑换信息
+function fetchMerchantPoints() {
+  // 假设有一个接口可以获取商家的积分和兑换信息
+  fetch('/api/get-merchant-points') 
+    .then(response => response.json())
+    .then(data => {
+      const pointsInfoContainer = document.getElementById('merchantPointsInfo');
+      const points = data.points; // 商家的积分余额
+      const exchangeRate = data.exchangeRate; // 汇率（积分兑换人民币的比例）
+
+      const convertedAmount = (points / exchangeRate).toFixed(2); // 转换成人民币金额
+      pointsInfoContainer.innerHTML = `
+        <p><strong>当前积分余额：</strong>${points} 积分</p>
+        <p><strong>兑换汇率：</strong>1元人民币 = ${exchangeRate}积分</p>
+        <p><strong>可兑换金额：</strong>${convertedAmount} 元人民币</p>
+      `;
+    })
+    .catch(error => console.error('Error fetching merchant points:', error));
+}
+
+// 提交积分提现申请
+function processWithdrawal() {
+  const withdrawAmount = document.getElementById('withdrawAmount').value;
+  if (!withdrawAmount || withdrawAmount <= 0) {
+    alert('请输入有效的提现积分');
+    return;
+  }
+
+  // 获取商家的积分余额和兑换汇率
+  fetch('/api/get-merchant-points') 
+    .then(response => response.json())
+    .then(data => {
+      const points = data.points; // 商家的积分余额
+      const exchangeRate = data.exchangeRate; // 汇率
+
+      // 检查提现的积分是否小于等于商家余额
+      if (withdrawAmount > points) {
+        alert('您的积分余额不足');
+        return;
+      }
+
+      const withdrawalAmount = (withdrawAmount / exchangeRate).toFixed(2); // 计算人民币金额
+
+      // 调用后端接口申请提现
+      fetch('/api/process-withdrawal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ withdrawAmount, withdrawPoints: withdrawAmount * exchangeRate })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('提现申请成功');
+          fetchMerchantPoints(); // 刷新积分信息
+        } else {
+          alert('提现申请失败');
+        }
+      })
+      .catch(error => console.error('Error processing withdrawal:', error));
+    })
+    .catch(error => console.error('Error fetching merchant points:', error));
+}
 
 
 /*全局作用域*/

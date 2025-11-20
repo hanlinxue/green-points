@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>积分提现 - GreenPoints</title>
+  <link rel="stylesheet" href="../static/css/style.css">
+</head>
+<body onload="initWithdrawPage()">
+  <div class="dashboard">
+    <nav class="dash-nav">
+      <div class="brand">商户中心</div>
+      <a href="merchant_products.html">商品管理</a>
+      <a href="merchant_orders.html">订单处理</a>
+      <a href="#" class="active">积分提现</a>
+      <a href="users/index.html">退出登录</a>
+    </nav>
+
+    <div class="dash-main">
+      <div class="dash-header">
+        <div>
+          <h1>积分提现</h1>
+          <p>根据兑换规则，将您的积分兑换为人民币。</p>
+        </div>
+        <button class="btn-outline" onclick="fetchMerchantPoints()">刷新积分</button>
+      </div>
+
+      <div class="panel hover-lift">
+        <div class="panel-header">
+          <h2>积分余额</h2>
+        </div>
+        <div id="merchantPointsInfo" class="points-info">
+          <!-- 积分和兑换汇率信息将在这里显示 -->
+        </div>
+      </div>
+
+      <div class="panel hover-lift">
+        <div class="panel-header">
+          <h2>积分提现</h2>
+        </div>
+        <form id="withdrawForm" onsubmit="event.preventDefault(); processWithdrawal();">
+          <div class="input-group">
+            <label for="withdrawAmount">提现积分</label>
+            <input id="withdrawAmount" type="number" class="input" placeholder="请输入要提现的积分数量" min="1" required>
+          </div>
+          <button type="submit" class="btn">申请提现</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="../static/js/script.js"></script>
+</body>
+</html>
