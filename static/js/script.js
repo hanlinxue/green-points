@@ -3,9 +3,23 @@ function generateAccount(role) {
   const prefix = { user: "U", merchant: "M" }[role] || "U";
   return prefix + Date.now();
 }
+/* apiFeetch函数 */
+/* 辅助函数 */
+async function apiFetch(path, opts = {}) {
+  try {
+    const res = await fetch(path, Object.assign({
+      headers: Object.assign({ "Content-Type": "application/json" }, opts.headers || {})
+    }, opts));
+    const json = await res.json().catch(()=>({}));
+    return { ok: res.ok, status: res.status, data: json };
+  } catch (e) {
+    console.error("apiFetch error", e);
+    return { ok:false, status:0, data:{ message:"网络错误" } };
+  }
+}
 
 /* 注册 */
-async function register() {
+async function register()  {
   const role = document.getElementById("role")?.value || "user";
   if (role === "admin") return alert("前端禁止注册管理员账号！");    
   const email = document.getElementById("email")?.value.trim();
@@ -14,7 +28,7 @@ async function register() {
   if (!email || !phone || !pwd) return alert("请填写完整信息！");
   const id = generateAccount(role);
   document.getElementById("generatedId") && (document.getElementById("generatedId").innerText = id);
-  const res = await apiFetch("/api/register", { method: "POST", body: JSON.stringify({ role, id, email, phone, password: pwd })});
+  const res = await apiFetch("url_for('user.register')", { method: "POST", body: JSON.stringify({ role, id, email, phone, password: pwd })});
   alert(res.data?.message || (res.ok ? "注册成功" : "注册失败"));  
   if (res.ok) window.location.href = "index.html";
 }

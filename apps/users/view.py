@@ -7,8 +7,14 @@ def index():
     return render_template('login/index.html')
 
 
-@user_bp.route('/register')
+@user_bp.route('/register', methods=['GET','POST'])
 def register():
+    if request.method == 'POST':
+        data = request.get_json()
+        user_id = data.get('id')
+        user_email = data.get('email')
+        user_phone = data.get('phone')
+        user_password = data.get('password')
     return render_template('login/register.html')
 
 
