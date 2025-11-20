@@ -103,7 +103,7 @@ async function login() {
   const pwd = document.getElementById("login_password")?.value.trim();
   if (!id || !pwd) return alert("⚠️ 请填写账号和密码！");
 
-  const res = await apiFetch("/api/login", {
+  const res = await apiFetch("/api/l", {
     method: "POST",
     body: JSON.stringify({ id, password: pwd })
   });

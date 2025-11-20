@@ -34,11 +34,11 @@
         <label style="font-weight:600;color:#1d2a41">
           <input id="rememberMe" type="checkbox" style="margin-right:8px;">记住我
         </label>
-        <a href="forgot.html" class="link" style="font-size:14px;">忘记密码？</a>
+        <a href="{{ url_for('user.forgot') }}" class="link" style="font-size:14px;">忘记密码？</a>
       </div>
       <button class="btn" onclick="login()">立即登录</button>
       <p style="text-align:center;margin-top:18px;font-size:14px;color:#5b6375;">
-        还没有账号？<a href="register.html" class="link">立即注册</a>
+        还没有账号？<a href="{{ url_for('user.register') }}" class="link">立即注册</a>
       </p>
     </section>
   </div>
