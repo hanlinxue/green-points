@@ -1,0 +1,66 @@
+<!-- 商户管理界面：商品上架、订单处理、提现 -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>商户中心 - GreenPoints</title>
+  <link rel="stylesheet" href="../static/css/style.css">
+</head>
+<body onload="initMerchantDashboard()">
+  <div class="dashboard">
+    <nav class="dash-nav">
+      <div class="brand">商户中心</div>
+      <a href="#" class="active">商品管理</a>
+      <a href="merchant_orders.html">订单处理</a>
+      <a href="merchant_withdraw.html">积分提现</a>
+      <a href="users/index.html">退出登录</a>
+    </nav>
+
+    <div class="dash-main">
+      <div class="dash-header">
+        <div>
+          <h1>商品管理</h1>
+          <p>上架绿色商品，设置积分兑换规则，获取更多曝光。</p>
+        </div>
+        <button class="btn-outline" onclick="fetchMerchantProducts()">刷新</button>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card hover-lift">
+          <span>可兑换积分</span>
+          <strong id="merchantMetricPoints">—</strong>
+          <p style="color:var(--muted);margin-top:6px;">可提现积分总额</p>
+        </div>
+        <div class="stat-card hover-lift">
+          <span>上架商品</span>
+          <strong id="merchantMetricProducts">0</strong>
+          <p style="color:var(--muted);margin-top:6px;">已上架的商品数量</p>
+        </div>
+        <div class="stat-card hover-lift">
+          <span>待处理订单</span>
+          <strong id="merchantMetricOrders">0</strong>
+          <p style="color:var(--muted);margin-top:6px;">需要发货的订单</p>
+        </div>
+      </div>
+
+      <div class="panel hover-lift">
+        <div class="panel-header">
+          <h2>商品管理</h2>
+          <span class="pill">选择上架商品</span>
+        </div>
+        <div id="merchantProductList" class="product-grid"></div>
+        <button class="btn" onclick="updateProductStatus()">更新商品状态</button>
+      </div>
+
+      <div class="panel hover-lift">
+        <div class="panel-header">
+          <h2>我的商品</h2>
+        </div>
+        <div id="merchantProductList" class="product-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../static/js/script.js"></script>
+</body>
+</html>
