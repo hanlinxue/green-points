@@ -1,23 +1,3 @@
-/* 辅助函数 */
-async function apiFetch(path, opts = {}) {
-  try {
-    const res = await fetch(path, Object.assign({
-      headers: Object.assign({ "Content-Type": "application/json" }, opts.headers || {})
-    }, opts));
-    const json = await res.json().catch(()=>({}));
-    return { ok: res.ok, status: res.status, data: json };
-  } catch (e) {
-    console.error("apiFetch error", e);
-    return { ok:false, status:0, data:{ message:"网络错误" } };
-  }
-}
-
-function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.innerText = value;
-}
-
-/* 自动生成账号 */
 function generateAccount(role) {
   if (role === "admin") role = "user";
   const prefix = { user: "U", merchant: "M" }[role] || "U";
@@ -44,7 +24,7 @@ async function login() {
   const id = document.getElementById("login_id")?.value.trim();
   const pwd = document.getElementById("login_password")?.value.trim();
   if (!id || !pwd) return alert("请填写账号和密码！");
-  const res = await apiFetch("/api/l", { method: "POST", body: JSON.stringify({ id, password: pwd })});
+  const res = await apiFetch("/api/login", { method: "POST", body: JSON.stringify({ id, password: pwd })});
   if (!res.ok) return alert(res.data?.message || "登录失败");
   // 记住账号
   const remember = document.getElementById("rememberMe");
@@ -296,6 +276,397 @@ async function fetchPointRecords() {
     el.appendChild(node);
   });
 }
+
+
+
+
+/* ==========================================================
+   积分兑换规则管理（point_roles.html 使用）
+   ========================================================== */
+
+// 本地缓存的规则列表（从后台获取）
+let POINT_RULES = [];
+
+/* ----- 1. 初始化页面 ----- */
+function initPointRules() {
+  fetch("/api/point-rules")
+    .then(res => res.json())
+    .then(data => {
+      POINT_RULES = data;
+      renderPointRuleTable();
+    })
+    .catch(err => {
+      console.error(err);
+      alert("加载积分规则失败");
+    });
+}
+
+/* ----- 2. 渲染表格 ----- */
+function renderPointRuleTable() {
+  const table = document.getElementById("ruleTable");
+  table.innerHTML = "";
+
+  POINT_RULES.forEach((r, i) => {
+    table.innerHTML += `
+      <tr>
+        <td><input class="input" value="${r.mode}" onchange="updateRule(${i}, 'mode', this.value)"></td>
+        <td><input class="input" type="number" step="0.01" value="${r.rate}" onchange="updateRule(${i}, 'rate', parseFloat(this.value))"></td>
+        <td>
+          <button class="btn-mini red" onclick="deletePointRule(${i})">删除</button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+/* ----- 3. 修改内存中的规则对象 ----- */
+function updateRule(index, field, value) {
+  POINT_RULES[index][field] = value;
+}
+
+/* ----- 4. 删除规则 ----- */
+function deletePointRule(index) {
+  if (!confirm("确定删除此规则？")) return;
+  POINT_RULES.splice(index, 1);
+  renderPointRuleTable();
+}
+
+/* ----- 5. 新增规则 ----- */
+function addPointRule() {
+  POINT_RULES.push({
+    mode: "新方式",
+    rate: 1.0
+  });
+  renderPointRuleTable();
+}
+
+/* ----- 6. 保存所有规则（提交后台） ----- */
+function savePointRules() {
+  fetch("/api/point-rules/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(POINT_RULES)
+  })
+    .then(res => res.json())
+    .then(res => {
+      if (res.success) {
+        alert("规则已成功保存！");
+      } else {
+        alert("保存失败：" + res.message);
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert("保存失败！");
+    });
+}
+
+
+/*************************************************
+ * 账户管理功能初始化
+ *************************************************/
+function initAdminUsers() {
+  loadUserList();
+  loadMerchantList();
+}
+
+/*************************************************
+ * TAB 切换（用户 / 商户）
+ *************************************************/
+function switchUserTab(type) {
+  const userPanel = document.getElementById("userPanel");
+  const merchantPanel = document.getElementById("merchantPanel");
+
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+
+  if (type === "user") {
+    document.querySelectorAll(".tab-btn")[0].classList.add("active");
+    userPanel.style.display = "block";
+    merchantPanel.style.display = "none";
+  } else {
+    document.querySelectorAll(".tab-btn")[1].classList.add("active");
+    userPanel.style.display = "none";
+    merchantPanel.style.display = "block";
+  }
+}
+
+/*************************************************
+ * 数据加载：用户
+ *************************************************/
+async function loadUserList() {
+  try {
+    const res = await fetch("/api/admin/users");
+    const data = await res.json();
+    window._allUsers = data.users;
+    renderUserTable(data.users);
+  } catch (err) {
+    console.error("用户数据加载失败", err);
+  }
+}
+
+/*************************************************
+ * 数据加载：商户
+ *************************************************/
+async function loadMerchantList() {
+  try {
+    const res = await fetch("/api/admin/merchants");
+    const data = await res.json();
+    window._allMerchants = data.merchants;
+    renderMerchantTable(data.merchants);
+  } catch (err) {
+    console.error("商户数据加载失败", err);
+  }
+}
+
+/*************************************************
+ * 渲染用户表格
+ *************************************************/
+function renderUserTable(list) {
+  const box = document.getElementById("userTable");
+  box.innerHTML = "";
+
+  list.forEach(u => {
+    const row = document.createElement("tr");
+
+    row.innerHTML = `
+      <td>${u.username}</td>
+      <td>${u.email || "—"}</td>
+      <td>
+        <span class="pill ${u.status === "frozen" ? "orange" : ""}">
+          ${u.status === "frozen" ? "已冻结" : "正常"}
+        </span>
+      </td>
+      <td>
+        ${
+          u.status === "frozen"
+            ? `<button class="btn small" onclick="unfreezeUser('${u.id}')">解冻</button>`
+            : `<button class="btn small danger" onclick="freezeUser('${u.id}')">冻结</button>`
+        }
+        <button class="btn small danger" onclick="deleteUser('${u.id}')">删除</button>
+      </td>
+    `;
+
+    box.appendChild(row);
+  });
+}
+
+/*************************************************
+ * 渲染商户表格
+ *************************************************/
+function renderMerchantTable(list) {
+  const box = document.getElementById("merchantTable");
+  box.innerHTML = "";
+
+  list.forEach(m => {
+    const row = document.createElement("tr");
+
+    const statusPill = 
+      m.status === "pending" ? "pill orange" :
+      m.status === "frozen" ? "pill danger" :
+      "pill";
+
+    const statusText =
+      m.status === "pending" ? "待审核" :
+      m.status === "frozen" ? "已冻结" :
+      "正常";
+
+    row.innerHTML = `
+      <td>${m.merchantName}</td>
+      <td>${m.contact || "—"}</td>
+      <td><span class="${statusPill}">${statusText}</span></td>
+      <td>
+        ${
+          m.status === "pending"
+            ? `
+                <button class="btn small" onclick="approveMerchant('${m.id}')">通过</button>
+                <button class="btn small danger" onclick="rejectMerchant('${m.id}')">拒绝</button>
+              `
+            : ""
+        }
+        ${
+          m.status === "frozen"
+            ? `<button class="btn small" onclick="unfreezeMerchant('${m.id}')">解冻</button>`
+            : `<button class="btn small danger" onclick="freezeMerchant('${m.id}')">冻结</button>`
+        }
+      </td>
+    `;
+
+    box.appendChild(row);
+  });
+}
+
+/*************************************************
+ * 用户 API 操作
+ *************************************************/
+async function freezeUser(id) { await fetch(`/api/admin/user/freeze/${id}`, {method:"POST"}); loadUserList(); }
+async function unfreezeUser(id) { await fetch(`/api/admin/user/unfreeze/${id}`, {method:"POST"}); loadUserList(); }
+async function deleteUser(id) {
+  if (!confirm("确定删除该用户？")) return;
+  await fetch(`/api/admin/user/delete/${id}`, {method:"DELETE"});
+  loadUserList();
+}
+
+/*************************************************
+ * 商户 API 操作
+ *************************************************/
+async function approveMerchant(id) { await fetch(`/api/admin/merchant/approve/${id}`, {method:"POST"}); loadMerchantList(); }
+async function rejectMerchant(id) { await fetch(`/api/admin/merchant/reject/${id}`, {method:"POST"}); loadMerchantList(); }
+async function freezeMerchant(id) { await fetch(`/api/admin/merchant/freeze/${id}`, {method:"POST"}); loadMerchantList(); }
+async function unfreezeMerchant(id) { await fetch(`/api/admin/merchant/unfreeze/${id}`, {method:"POST"}); loadMerchantList(); }
+
+/*************************************************
+ * 搜索
+ *************************************************/
+function filterAccountList() {
+  const q = document.getElementById("searchInput").value.toLowerCase();
+
+  if (document.querySelector(".tab-btn.active").innerText === "用户列表") {
+    renderUserTable(window._allUsers.filter(u =>
+      (u.username + (u.email || "")).toLowerCase().includes(q)
+    ));
+  } else {
+    renderMerchantTable(window._allMerchants.filter(m =>
+      (m.merchantName + (m.contact || "")).toLowerCase().includes(q)
+    ));
+  }
+}
+
+
+/* ============================================================
+   用户个人中心（user_profile.html）新增 JS
+   与原有系统完全兼容，不覆盖你已有的 API 逻辑
+   ============================================================ */
+
+/* ----- 1. 页面初始化 ----- */
+function initUserProfile() {
+  fetchUserInfo();
+  fetchUserOrders();
+}
+
+
+/* ----- 2. 拉取用户信息（头像、昵称、积分等） ----- */
+function fetchUserInfo() {
+  fetch("/api/user/info")
+    .then(res => res.json())
+    .then(data => {
+      if (!data) return;
+
+      // 基本信息
+      document.getElementById("userName").textContent = data.name || "未设置";
+      document.getElementById("userPhone").textContent = data.phone || "无";
+      document.getElementById("userPoints").textContent = data.points || 0;
+
+      // 可选项目：头像
+      if (data.avatar) {
+        document.getElementById("userAvatar").src = data.avatar;
+      }
+    })
+    .catch(err => {
+      console.error("用户信息加载失败", err);
+      alert("加载用户信息失败");
+    });
+}
+
+
+/* ----- 3. 更新个人资料 ----- */
+function updateUserProfile() {
+  const name = document.getElementById("editName").value;
+  const phone = document.getElementById("editPhone").value;
+
+  fetch("/api/user/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, phone })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        alert("资料已更新");
+        fetchUserInfo();
+      } else {
+        alert("更新失败：" + data.message);
+      }
+    })
+    .catch(err => {
+      console.error("更新用户资料失败", err);
+      alert("更新失败，请稍后再试");
+    });
+}
+
+
+/* ----- 4. 拉取最近兑换订单（积分商城） ----- */
+function fetchUserOrders() {
+  fetch("/api/user/orders")
+    .then(res => res.json())
+    .then(data => {
+      const list = document.getElementById("orderList");
+      list.innerHTML = "";
+
+      if (!data || data.length === 0) {
+        list.innerHTML = `<p class="empty-text">暂无兑换记录</p>`;
+        return;
+      }
+
+      data.forEach(order => {
+        const item = document.createElement("div");
+        item.className = "order-item hover-lift";
+
+        item.innerHTML = `
+          <div class="order-info">
+            <h3>${order.product_name}</h3>
+            <p>消耗积分：<b>${order.cost_points}</b></p>
+            <p>订单时间：${order.created_at}</p>
+          </div>
+          <span class="pill ${order.status}">
+            ${order.status === "done" ? "已完成" :
+              order.status === "pending" ? "处理中" :
+              "已取消"}
+          </span>
+        `;
+
+        list.appendChild(item);
+      });
+    })
+    .catch(err => {
+      console.error("用户订单加载失败", err);
+      alert("加载兑换记录失败");
+    });
+}
+
+
+/* ----- 5. 修改密码（可选） ----- */
+function changePassword() {
+  const oldPwd = document.getElementById("oldPassword").value;
+  const newPwd = document.getElementById("newPassword").value;
+
+  if (!oldPwd || !newPwd) {
+    alert("请输入完整信息");
+    return;
+  }
+
+  fetch("/api/user/change-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ old_password: oldPwd, new_password: newPwd })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        alert("密码修改成功");
+        document.getElementById("oldPassword").value = "";
+        document.getElementById("newPassword").value = "";
+      } else {
+        alert("修改失败：" + data.message);
+      }
+    })
+    .catch(err => {
+      console.error("修改密码失败", err);
+      alert("修改密码时发生错误");
+    });
+}
+
+
+
 
 /*全局作用域*/
 window.initProductsPage = initProductsPage;
