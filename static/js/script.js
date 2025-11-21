@@ -28,9 +28,9 @@ async function register()  {
   if (!email || !phone || !pwd) return alert("请填写完整信息！");
   const id = generateAccount(role);
   document.getElementById("generatedId") && (document.getElementById("generatedId").innerText = id);
-  const res = await apiFetch("url_for('user.register')", { method: "POST", body: JSON.stringify({ role, id, email, phone, password: pwd })});
-  alert(res.data?.message || (res.ok ? "注册成功" : "注册失败"));  
-  if (res.ok) window.location.href = "index.html";
+  const res = await apiFetch("/register", { method: "POST", body: JSON.stringify({ role, id, email, phone, password: pwd })});
+  alert(res.data?.message || (res.ok ? "注册成功,即将返回登录页面!" : "注册失败"));
+  if (res.ok) window.location.href = "/";
 }
 
 /* 登录 + 记住账号 */
@@ -803,6 +803,33 @@ function processWithdrawal() {
     })
     .catch(error => console.error('Error fetching merchant points:', error));
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取密码输入框和切换按钮元素
+    const passwordInput = document.getElementById('password');
+    const togglePasswordBtn = document.getElementById('togglePassword');
+
+    // 为按钮添加点击事件
+    togglePasswordBtn.addEventListener('click', function() {
+        // 获取当前密码框的类型
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+
+        // 切换密码框的类型（显示/隐藏密码）
+        passwordInput.setAttribute('type', type);
+
+        // 获取按钮内的图标元素
+        const icon = togglePasswordBtn.querySelector('i');
+
+        // 切换图标（眼睛/眼睛划掉）
+        if (type === 'password') {
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        } else {
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        }
+      });
+    });
 
 
 /*全局作用域*/

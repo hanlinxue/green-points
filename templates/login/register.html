@@ -5,6 +5,8 @@
   <meta charset="utf-8">
   <title>注册 - GreenPoints</title>
   <link rel="stylesheet" href="../../static/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="../../static/css/password.css">
 </head>
 <body>
   <div class="eco-shell">
@@ -40,7 +42,12 @@
         <input id="phone" class="input" placeholder="请输入手机号">
 
         <label for="password">设置密码</label>
-        <input id="password" class="input" type="password" placeholder="至少 6 位，建议包含字母数字">
+        <div class="password-container">
+            <input id="password" class="input password-input" type="password" placeholder="至少 11 位，建议包含字母数字">
+            <button type="button" id="togglePassword" class="toggle-password-btn">
+                <i class="fa-solid fa-eye"></i>
+            </button>
+        </div>
       </div>
 
       <div class="generated-id">
