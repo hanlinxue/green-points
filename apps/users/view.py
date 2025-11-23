@@ -13,7 +13,8 @@ def index():
     return render_template('login/index.html')
 
 
-@user_bp.route('/register', methods=['GET','POST'])
+# register.html
+@user_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         data = request.get_json()
@@ -39,7 +40,7 @@ def register():
         user.username = user_id
         user.password = user_password
         user.phone = user_phone
-        user.email= user_email
+        user.email = user_email
         # 插入
         db.session.add(user)
         # 提交
@@ -51,6 +52,51 @@ def register():
     return render_template('login/register.html')
 
 
+# index.html
+@user_bp.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        data = request.get_json()
+        username = data.get('id')
+        print(username)
+        password = data.get('password')
+        print(password)
+        user_list = User.query.filter_by(username=username)  # 返回多条记录
+        for u in user_list:
+            # u表示的是用户对象，里面存的是用户名
+            if u.password == password:
+                return jsonify({
+                    "message": "注册成功,即将进入系统!",
+                }), 200
+            else:
+                return jsonify({"message": "用户名或者密码有错误！"}), 400
+    return render_template('login/index.html')
+
+
 @user_bp.route('/forgot')
 def forgot():
     return render_template('login/forgot.html')
+
+
+# products.html
+@user_bp.route('/user_index')
+def user_index():
+    return render_template('users/products.html')
+
+
+# 个人中心
+@user_bp.route('/user_profile')
+def user_profile():
+    return render_template('users/user_profile.html')
+
+
+# 提交出行
+@user_bp.route('/user_trip')
+def user_trip():
+    return render_template('users/user_trip.html')
+
+
+# 退出登录
+@user_bp.route('/user_out')
+def user_out():
+    return render_template('login/index.html')

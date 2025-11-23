@@ -13,6 +13,7 @@ class User(db.Model):
     phone = db.Column(db.String(11), unique=True, nullable=False)
     email = db.Column(db.String(30))
     isdelete = db.Column(db.Boolean, default=False)
+    iscancel = db.Column(db.Boolean, default=False)
     rdatetime = db.Column(db.DateTime, default=datetime.now)
     # 增加一个字段
     # articles = db.relationship('Article', backref='tb_user')

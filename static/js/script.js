@@ -38,14 +38,14 @@ async function login() {
   const id = document.getElementById("login_id")?.value.trim();
   const pwd = document.getElementById("login_password")?.value.trim();
   if (!id || !pwd) return alert("请填写账号和密码！");
-  const res = await apiFetch("/api/login", { method: "POST", body: JSON.stringify({ id, password: pwd })});
+  const res = await apiFetch("login", { method: "POST", body: JSON.stringify({ id, password: pwd })});
   if (!res.ok) return alert(res.data?.message || "登录失败");
   // 记住账号
   const remember = document.getElementById("rememberMe");
   if (remember && remember.checked) localStorage.setItem("remember_id", id);
   else localStorage.removeItem("remember_id");
   const role = res.data.role || "user";
-  if (role === "user") window.location.href = "products.html";
+  if (role === "user") window.location.href = "/user_index";
   else if (role === "merchant") window.location.href = "merchant.html";
   else if (role === "admin") window.location.href = "admin.html";
 }
