@@ -1,10 +1,8 @@
-from flask_bootstrap import Bootstrap
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 
 db = SQLAlchemy()  # ORM
 migrate = Migrate()  # 数据迁移
-bootstrap = Bootstrap()
 
 
 def init_exts(app):
