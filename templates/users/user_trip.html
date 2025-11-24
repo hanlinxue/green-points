@@ -45,10 +45,10 @@
 
     <nav class="dash-nav">
       <div class="brand">GreenPoints 商城</div>
-      <a href="products.html">全部商品</a>
-      <a href="user_profile.html">个人中心</a>
+      <a href="{{ url_for('user.user_index') }}">全部商品</a>
+      <a href="{{ url_for('user.user_profile') }}">个人中心</a>
       <a class="active" href="#">提交出行</a>
-      <a href="index.html">退出登录</a>
+      <a href="{{ url_for('user.user_out') }}">退出登录</a>
     </nav>
 
     <section class="dash-main">

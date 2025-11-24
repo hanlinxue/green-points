@@ -79,24 +79,26 @@ def forgot():
 
 
 # products.html
-@user_bp.route('/user_index')
+@user_bp.route('/user_index', methods=['GET', 'POST'])
 def user_index():
     return render_template('users/products.html')
 
 
 # 个人中心
-@user_bp.route('/user_profile')
+@user_bp.route('/user_profile', methods=['GET', 'POST'])
 def user_profile():
+    if request.method == 'POST':
+        return render_template('users/user_profile.html')
     return render_template('users/user_profile.html')
 
 
 # 提交出行
-@user_bp.route('/user_trip')
+@user_bp.route('/user_trip', methods=['GET', 'POST'])
 def user_trip():
     return render_template('users/user_trip.html')
 
 
 # 退出登录
-@user_bp.route('/user_out')
+@user_bp.route('/user_out', methods=['GET', 'POST'])
 def user_out():
     return render_template('login/index.html')

@@ -10,9 +10,9 @@
   <div class="dashboard">
     <nav class="dash-nav">
       <div class="brand">绿色出行 商城</div>
-      <a href="{{ url_for('user.user_index') }}" class="active">全部商品</a>
+      <a href="#" class="active">全部商品</a>
       <a href="{{ url_for('user.user_profile') }}">个人中心</a>
-      <a href="/user_trip">提交出行</a>
+      <a href="{{ url_for('user.user_trip') }}">提交出行</a>
       <a href="{{ url_for('user.user_out') }}">退出登录</a>
     </nav>
 

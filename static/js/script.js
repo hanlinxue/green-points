@@ -38,7 +38,7 @@ async function login() {
   const id = document.getElementById("login_id")?.value.trim();
   const pwd = document.getElementById("login_password")?.value.trim();
   if (!id || !pwd) return alert("请填写账号和密码！");
-  const res = await apiFetch("login", { method: "POST", body: JSON.stringify({ id, password: pwd })});
+  const res = await apiFetch("/login", { method: "POST", body: JSON.stringify({ id, password: pwd })});
   if (!res.ok) return alert(res.data?.message || "登录失败");
   // 记住账号
   const remember = document.getElementById("rememberMe");
@@ -89,10 +89,10 @@ async function resetPassword() {
 
 /* (用户浏览商品并兑换)*/
 async function initProductsPage() {
-  fetchProducts();
+  await fetchProducts();
 }
 async function fetchProducts() {
-  const res = await apiFetch("/api/products");
+  const res = await apiFetch("/user_index");
   const container = document.getElementById("productList");
   if (!container) return;
   container.innerHTML = "";
@@ -126,14 +126,14 @@ async function redeemProduct(prodId) {
   if (!addr) return alert("请填写地址");
   const res = await apiFetch("/api/orders", { method: "POST", body: JSON.stringify({ productId: prodId, address: addr })});
   alert(res.data?.message || (res.ok ? "下单成功" : "兑换失败"));
-  if (res.ok) fetchProducts();
+  if (res.ok) await fetchProducts();
 }
 
 /* 商户控制台 (上架/订单/提现) */
 async function initMerchantDashboard() {
-  fetchMerchantProducts();
-  fetchMerchantOrders();
-  fetchMerchantWithdrawals();
+  await fetchMerchantProducts();
+  await fetchMerchantOrders();
+  await fetchMerchantWithdrawals();
 }
 async function createMerchantProduct() {
   const name = document.getElementById("mp_name")?.value.trim();
