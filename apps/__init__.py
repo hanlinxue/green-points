@@ -1,6 +1,7 @@
 from flask import Flask
 
 import settings
+from apps.merchants.view import merchant_bp
 from apps.users.view import user_bp
 from exts import init_exts
 
@@ -11,6 +12,7 @@ def create_app():
     app.config.from_object(settings.Config)
     # 蓝图
     app.register_blueprint(user_bp)
+    app.register_blueprint(merchant_bp)
     # 数据库连接
     init_exts(app)
     return app
