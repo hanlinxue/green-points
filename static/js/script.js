@@ -60,20 +60,41 @@ function initLoginPage() {
 
 /* 忘记密码，发送验证码*/
 let _countdown = 60;
+
 async function sendCode() {
   const id = document.getElementById("fp_id")?.value.trim();
   const email = document.getElementById("fp_email")?.value.trim();
+
   if (!id || !email) return alert("请填写账号与邮箱！");
+
   const btn = document.getElementById("sendCodeBtn");
   btn.disabled = true;
   btn.innerText = `${_countdown} 秒`;
-  const timer = setInterval(()=> {
+
+  const timer = setInterval(() => {
     _countdown--;
     btn.innerText = `${_countdown} 秒`;
-    if (_countdown <= 0) { clearInterval(timer); btn.disabled=false; btn.innerText="发送验证码"; _countdown=60; }
-  },1000);
-  const res = await apiFetch("/api/send-reset-code", { method: "POST", body: JSON.stringify({ id, email })});
+    if (_countdown <= 0) {
+      clearInterval(timer);
+      btn.disabled = false;
+      btn.innerText = "发送验证码";
+      _countdown = 60;
+    }
+  }, 1000);
+
+  // 调用后端接口
+  const res = await apiFetch("/api/send-reset-code", {
+    method: "POST",
+    body: JSON.stringify({ id, email })
+  });
+
+  // 显示提示
   alert(res.data?.message || (res.ok ? "验证码已发送" : "发送失败"));
+
+  // ★★★ 如果发送成功 → 自动跳转到填写验证码页面 ★★★
+  if (res.ok) {
+    window.location.href = "reset.html";  // 跳转到填写验证码的页面
+  }
 }
 
 /* 重设密码*/
@@ -830,6 +851,77 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
     });
+// 绑定切换按钮
+document.getElementById("passwordLoginBtn").onclick = () => toggleLoginMethod("password");
+document.getElementById("smsLoginBtn").onclick = () => toggleLoginMethod("sms");
+
+// 账号密码登录
+document.getElementById("passwordLoginBtnAction").onclick = () => {
+  const id = document.getElementById("login_id").value;
+  const pwd = document.getElementById("login_password").value;
+
+  if (!id || !pwd) {
+    alert("请输入完整的登录信息！");
+    return;
+  }
+
+  alert("账号密码登录成功！（实际应调用后端API）");
+};
+
+// 发送验证码
+document.getElementById("getSmsCode").onclick = () => {
+  let phone = document.getElementById("phone_number").value;
+
+  if (!phone || phone.length !== 11) {
+    alert("请输入正确的手机号！");
+    return;
+  }
+
+  alert("验证码已发送！（这里应连接后端短信接口）");
+
+  // 倒计时 60 秒
+  let btn = document.getElementById("getSmsCode");
+  btn.disabled = true;
+
+  let count = 60;
+  btn.innerHTML = count + "秒后重发";
+
+  let timer = setInterval(() => {
+    count--;
+    if (count <= 0) {
+      clearInterval(timer);
+      btn.disabled = false;
+      btn.innerHTML = "获取验证码";
+    } else {
+      btn.innerHTML = count + "秒后重发";
+    }
+  }, 1000);
+};
+
+// 手机号验证码登录
+document.getElementById("smsLoginBtnAction").onclick = () => {
+  const phone = document.getElementById("phone_number").value;
+  const code = document.getElementById("sms_code").value;
+
+  if (!phone || phone.length !== 11 || !code) {
+    alert("请填写手机号和验证码！");
+    return;
+  }
+
+  alert("验证码登录成功！（实际应调用后端验证API）");
+};
+
+// 绑定忘记密码按钮点击事件
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("sendCodeBtn");
+  if (btn) {
+    btn.addEventListener("click", sendCode);
+  }
+});
+
+
+// 调用初始化
+initLoginPage();
 
 
 /*全局作用域*/
