@@ -24,16 +24,35 @@
       <div class="form-header">
         <h2>填写信息</h2>
       </div>
+
       <div class="input-group">
         <input id="rp_id" class="input" placeholder="账号">
         <input id="rp_code" class="input" placeholder="验证码">
+
+        <!-- 新密码 -->
         <input id="rp_newpwd" type="password" class="input" placeholder="新密码">
       </div>
+      <!-- 提交按钮 -->
       <button class="btn" onclick="resetPassword()">提交</button>
-      <p style="text-align:center;margin-top:12px;"><a class="link" href="index.html">返回登录</a></p>
+
+      <p style="text-align:center;margin-top:12px;">
+        <a class="link" href="index.html">返回登录</a>
+      </p>
     </section>
   </div>
 
+  <!-- 主 JS -->
   <script src="../../static/js/script.js"></script>
+
+  <!-- 自动填入账号 -->
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("id");
+    if (id) {
+      const input = document.getElementById("rp_id");
+      if (input) input.value = id;
+    }
+  </script>
+
 </body>
 </html>
