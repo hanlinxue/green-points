@@ -555,3 +555,38 @@ label{display:block;font-weight:600;color:#1d2a41;margin-bottom:6px;}
     gap: 12px;
   }
 }
+
+.login-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.toggle-btn {
+  padding: 10px 20px;
+  font-size: 15px;
+  border: 1px solid #cfd3dc;
+  background: #f5f7fa;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.25s ease;
+  color: #2b3347;
+  font-weight: 600;
+}
+
+.toggle-btn:hover {
+  background: #e9eef5;
+  border-color: #b6bcc8;
+}
+
+.toggle-btn.active {
+  background: var(--brand);
+  color: white;
+  border-color: var(--brand);
+  box-shadow: 0 2px 6px rgba(46, 204, 113, 0.35);
+}
+
+.toggle-btn:active {
+  transform: scale(0.97);
+}
