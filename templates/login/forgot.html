@@ -29,23 +29,13 @@
         <input id="fp_id" class="input" placeholder="账号">
         <input id="fp_email" class="input" placeholder="注册邮箱">
       </div>
-
-      <!-- 点击时会自动跳转 -->
-      <button id="sendCodeBtn" class="btn">发送验证码</button>
-
+      <button id="sendCodeBtn" class="btn" onclick="sendCode()">发送验证码</button>
       <div class="form-links">
         <a href="reset.html" class="link">我已收到验证码 →</a>
         <a href="index.html" class="link">返回登录</a>
       </div>
     </section>
   </div>
-
-  <script>
-    // ★★★ 在此添加自动跳转代码 ★★★
-    document.getElementById("sendCodeBtn").addEventListener("click", function () {
-        window.location.href = "reset.html";
-    });
-  </script>
 
   <script src="../../static/js/script.js"></script>
 </body>
