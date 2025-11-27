@@ -5,6 +5,8 @@
   <meta charset="utf-8">
   <title>注册 - GreenPoints</title>
   <link rel="stylesheet" href="../../static/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="../../static/css/password.css">
 </head>
 <body>
   <div class="eco-shell">
@@ -40,141 +42,23 @@
         <input id="phone" class="input" placeholder="请输入手机号">
 
         <label for="password">设置密码</label>
-        <input id="password" class="input" type="password" placeholder="至少 6 位，建议包含字母数字">
+        <div class="password-container">
+            <input id="password" class="input password-input" type="password" placeholder="至少 11 位，建议包含字母数字">
+            <button type="button" id="togglePassword" class="toggle-password-btn">
+                <i class="fa-solid fa-eye"></i>
+            </button>
+        </div>
       </div>
 
       <div class="generated-id">
         系统生成账号： <b id="generatedId" style="color:#008f64;font-size:18px;"></b>
       </div>
 
-      <button id="registerBtn" class="btn" type="button">提交注册</button>
-      <p style="text-align:center;margin-top:16px;"><a class="link" href="index.html">返回登录</a></p>
+      <button class="btn" onclick="register()">提交注册</button>
+      <p style="text-align:center;margin-top:16px;"><a class="link" href="{{ url_for('user.index') }}">返回登录</a></p>
     </section>
   </div>
 
   <script src="../../static/js/script.js"></script>
-
-  <!-- 生成账号 & 注册逻辑（异步哈希，低碰撞） -->
-  <script>
-    // 将 ArrayBuffer 转为 hex 字符串
-    function bufferToHex(buff) {
-      const bytes = new Uint8Array(buff);
-      return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
-    }
-
-    // 异步使用 SHA-256 生成伪随机码（基于 role + phone + timestamp + random）
-    async function generateAccount(role, phone) {
-      const prefix = (role === "merchant") ? "M" : "U";
-      const phoneTrim = (phone || "").trim();
-      const ts = Date.now().toString();
-      // 64-bit 随机数，增加不可预测性
-      const rv = new Uint32Array(2);
-      if (window.crypto && window.crypto.getRandomValues) {
-        window.crypto.getRandomValues(rv);
-      } else {
-        // fallback
-        rv[0] = Math.floor(Math.random() * 0xFFFFFFFF);
-        rv[1] = Math.floor(Math.random() * 0xFFFFFFFF);
-      }
-      const randHex = rv[0].toString(16).padStart(8,"0") + rv[1].toString(16).padStart(8,"0");
-
-      const inputStr = `${role}|${phoneTrim}|${ts}|${randHex}`;
-      const enc = new TextEncoder().encode(inputStr);
-
-      // 支持 SubtleCrypto 的浏览器使用 SHA-256
-      if (window.crypto && window.crypto.subtle && window.crypto.subtle.digest) {
-        const hashBuffer = await window.crypto.subtle.digest("SHA-256", enc);
-        const hex = bufferToHex(hashBuffer); // 64 字节 hex 长度 64*? actually 32 bytes -> 64 hex chars
-        // 取 hex 的若干位并转为 base36 压缩显示，保留一定长度以减少概率
-        // 取前 12 个 hex 字符 -> 转为整数，再转为 base36
-        const slice = hex.slice(0, 16); // 16 hex chars -> 64 bits
-        // 使用 BigInt 安全处理
-        const num = BigInt("0x" + slice);
-        const base36 = num.toString(36).toUpperCase(); // 大写字母数字混合
-        // 最终账号：前缀 + base36（截取前 10 个字符保证长度合理）
-        const idBody = base36.slice(0, 10);
-        return prefix + idBody;
-      } else {
-        // 兼容性回退：使用 timestamp + random
-        const fallback = prefix + ts.slice(-6) + Math.floor(Math.random() * 9000 + 1000).toString();
-        return fallback;
-      }
-    }
-
-    // 将生成账号显示到页面（每次手机号或角色改变时更新）
-    let _genPromise = null;
-    async function updateGeneratedId() {
-      const role = document.getElementById("role").value;
-      const phone = document.getElementById("phone").value.trim();
-      const display = document.getElementById("generatedId");
-      // 如果手机号太短，不显示
-      if (!phone || phone.length < 7) {
-        display.innerText = "";
-        return;
-      }
-      // 防止短时间内重复调用（若需要更复杂可实现 debounce）
-      _genPromise = generateAccount(role, phone);
-      const id = await _genPromise;
-      // 显示
-      display.innerText = id;
-    }
-
-    // 绑定事件：角色切换或手机号输入时更新账号（异步）
-    document.getElementById("role").addEventListener("change", updateGeneratedId);
-    document.getElementById("phone").addEventListener("input", updateGeneratedId);
-
-    // 注册提交（覆盖或补充你 script.js 中的 register 行为）
-    document.getElementById("registerBtn").addEventListener("click", async function () {
-      const role = document.getElementById("role").value;
-      const email = document.getElementById("email").value.trim();
-      const phone = document.getElementById("phone").value.trim();
-      const pwd = document.getElementById("password").value.trim();
-      let account = document.getElementById("generatedId").innerText;
-
-      if (!email || !phone || !pwd) {
-        alert("请完整填写所有内容！");
-        return;
-      }
-
-      // 如果页面还没生成 id（例如用户很快就点提交），先生成一次
-      if (!account) {
-        account = await generateAccount(role, phone);
-        document.getElementById("generatedId").innerText = account;
-      }
-
-      // 建议：后端检查 account 是否唯一；若重复，后端可返回 409 并提供最终 account 或指示客户端重试
-      // 下面调用 apiFetch（你已有的辅助函数）
-      try {
-        const res = await apiFetch("/api/register", {
-          method: "POST",
-          body: JSON.stringify({
-            id: account,     // 使用生成的账号作为 id 字段
-            role,
-            email,
-            phone,
-            password: pwd
-          })
-        });
-
-        alert(res.data?.message || (res.ok ? "注册成功" : "注册失败"));
-        if (res.ok) {
-          window.location.href = "index.html";
-        } else if (res.status === 409) {
-          // 如果后端返回 409 冲突（账号已存在），可以提示并尝试重新生成一次并重试
-          alert("系统提示：生成的账号已存在，正在重试……");
-          const newAcc = await generateAccount(role, phone);
-          document.getElementById("generatedId").innerText = newAcc;
-          // 可选择自动重试或让用户手动再次点击注册
-        }
-      } catch (e) {
-        console.error(e);
-        alert("网络或服务器错误，请稍后重试");
-      }
-    });
-
-    // 可选：页面加载时尝试生成一次（若手机号已被预填）
-    window.addEventListener("load", updateGeneratedId);
-  </script>
-
 </body>
 </html>
