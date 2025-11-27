@@ -11,7 +11,7 @@
     <aside class="eco-illustration">
       <div class="illustration-content">
         <h1>绿行积分</h1>
-        <p>加入“晋碳行”，记录低碳出行，实时获取积分并兑换绿色福利。</p>
+        <p>加入“晋碳行”，记录低碳出行，随时获取积分并兑换绿色福利。</p>
         <div class="badge-row">
           <span class="badge-soft">出行积分</span>
           <span class="badge-soft">实时审核</span>
@@ -24,49 +24,26 @@
     <section class="eco-form">
       <div class="form-header">
         <h2>用户登录</h2>
-        <p>支持用户、商户、管理员账号登录。</p>
+        <p>支持用户、商户、管理员账号，凭证一致即可登录。</p>
       </div>
-
-      <!-- 登录方式切换 -->
-      <div class="login-toggle">
-        <button id="passwordLoginBtn" class="toggle-btn active">账号密码登录</button>
-        <button id="smsLoginBtn" class="toggle-btn">手机号验证码登录</button>
+      <div class="input-group">
+        <input id="login_id" class="input" placeholder="账号 / 用户ID">
+        <input id="login_password" type="password" class="input" placeholder="密码">
       </div>
-
-      <!-- 账号密码登录 -->
-      <div id="passwordLoginForm">
-        <div class="input-group">
-          <input id="login_id" class="input" placeholder="账号 / 用户ID">
-          <input id="login_password" type="password" class="input" placeholder="密码">
-        </div>
-        <div class="form-actions">
-          <label style="font-weight:600;color:#1d2a41">
-            <input id="rememberMe" type="checkbox" style="margin-right:8px;">记住我
-          </label>
-          <a href="forgot.html" class="link" style="font-size:14px;">忘记密码？</a>
-        </div>
-        <button class="btn" id="passwordLoginBtnAction">立即登录</button>
+      <div class="form-actions">
+        <label style="font-weight:600;color:#1d2a41">
+          <input id="rememberMe" type="checkbox" style="margin-right:8px;">记住我
+        </label>
+        <a href="{{ url_for('user.forgot') }}" class="link" style="font-size:14px;">忘记密码？</a>
       </div>
-
-      <!-- 手机号验证码登录 -->
-      <div id="smsLoginForm" style="display:none;">
-        <div class="input-group">
-          <input id="phone_number" class="input" placeholder="请输入手机号" maxlength="11">
-          <div style="display:flex;gap:10px;">
-            <input id="sms_code" class="input" placeholder="请输入验证码">
-            <button id="getSmsCode" class="btn" style="white-space:nowrap;">获取验证码</button>
-          </div>
-        </div>
-        <button class="btn" id="smsLoginBtnAction">立即登录</button>
-      </div>
-
+      <button class="btn" onclick="login()">立即登录</button>
       <p style="text-align:center;margin-top:18px;font-size:14px;color:#5b6375;">
-        还没有账号？<a href="register.html" class="link">立即注册</a>
+        还没有账号？<a href="{{ url_for('user.register') }}" class="link">立即注册</a>
       </p>
     </section>
   </div>
 
-  <!-- 引入 JS -->
   <script src="../../static/js/script.js"></script>
+  <script>initLoginPage();</script>
 </body>
 </html>
