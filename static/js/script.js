@@ -3,7 +3,7 @@ function generateAccount(role) {
   const prefix = { user: "U", merchant: "M" }[role] || "U";
   return prefix + Date.now();
 }
-/* apiFeetch函数 */
+/* apiFetch函数 */
 /* 辅助函数 */
 async function apiFetch(path, opts = {}) {
   try {
@@ -28,9 +28,9 @@ async function register()  {
   if (!email || !phone || !pwd) return alert("请填写完整信息！");
   const id = generateAccount(role);
   document.getElementById("generatedId") && (document.getElementById("generatedId").innerText = id);
-  const res = await apiFetch("/register", { method: "POST", body: JSON.stringify({ role, id, email, phone, password: pwd })});
+  const res = await apiFetch("/user/register", { method: "POST", body: JSON.stringify({ role, id, email, phone, password: pwd })});
   alert(res.data?.message || (res.ok ? "注册成功,即将返回登录页面!" : "注册失败"));
-  if (res.ok) window.location.href = "/";
+  if (res.ok) window.location.href = "/user";
 }
 
 /* 登录 + 记住账号 */
@@ -38,16 +38,17 @@ async function login() {
   const id = document.getElementById("login_id")?.value.trim();
   const pwd = document.getElementById("login_password")?.value.trim();
   if (!id || !pwd) return alert("请填写账号和密码！");
-  const res = await apiFetch("/login", { method: "POST", body: JSON.stringify({ id, password: pwd })});
+  const res = await apiFetch("/user/login", { method: "POST", body: JSON.stringify({ id, password: pwd })});
+  console.log("login response:", res);  // ← 调试关键
   if (!res.ok) return alert(res.data?.message || "登录失败");
   // 记住账号
   const remember = document.getElementById("rememberMe");
   if (remember && remember.checked) localStorage.setItem("remember_id", id);
   else localStorage.removeItem("remember_id");
   const role = res.data.role || "user";
-  if (role === "user") window.location.href = "/user_index";
-  else if (role === "merchant") window.location.href = "merchant.html";
-  else if (role === "admin") window.location.href = "admin.html";
+  if (role === "user") window.location.href = "/user/user_index";
+  else if (role === "merchant") window.location.href = "/merchant/merchant_index";
+  else if (role === "admin") window.location.href = "/admin/admin_index";
 }
 
 function initLoginPage() {

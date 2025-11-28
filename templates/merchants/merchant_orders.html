@@ -9,10 +9,10 @@
   <div class="dashboard">
     <nav class="dash-nav">
       <div class="brand">商户中心</div>
-      <a href="merchant_products.html">商品管理</a>
+      <a href="{{ url_for('merchant.merchant_product') }}">商品管理</a>
       <a href="#" class="active">订单处理</a>
-      <a href="merchant_withdraw.html">积分提现</a>
-      <a href="users/index.html">退出登录</a>
+      <a href="{{ url_for('merchant.merchant_withdraw') }}">积分提现</a>
+      <a href="{{ url_for('merchant.merchant_out') }}">退出登录</a>
     </nav>
 
     <div class="dash-main">

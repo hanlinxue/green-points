@@ -11,9 +11,9 @@
     <nav class="dash-nav">
       <div class="brand">商户中心</div>
       <a href="#" class="active">商品管理</a>
-      <a href="merchant_orders.html">订单处理</a>
-      <a href="merchant_withdraw.html">积分提现</a>
-      <a href="users/index.html">退出登录</a>
+      <a href="{{ url_for('merchant.merchant_order') }}">订单处理</a>
+      <a href="{{ url_for('merchant.merchant_withdraw') }}">积分提现</a>
+      <a href="{{ url_for('merchant.merchant_out') }}">退出登录</a>
     </nav>
 
     <div class="dash-main">

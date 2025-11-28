@@ -115,7 +115,7 @@
     }
 
     function fetchUserTrips() {
-      fetch("/api/user/trips")
+      fetch("/user_trip")
         .then(res => res.json())
         .then(data => {
           const list = document.getElementById("tripHistory");
