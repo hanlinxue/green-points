@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <title>找回密码 - GreenPoints</title>
-  <link rel="stylesheet" href="../../static/css/style.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="eco-shell">
@@ -28,15 +28,19 @@
       <div class="input-group">
         <input id="fp_id" class="input" placeholder="账号">
         <input id="fp_email" class="input" placeholder="注册邮箱">
+        <!-- 新增：验证码输入框（默认显示，无需隐藏） -->
+        <input id="fp_code" class="input" placeholder="请输入验证码">
       </div>
       <button id="sendCodeBtn" class="btn" onclick="sendCode()">发送验证码</button>
+      <!-- 新增：下一步按钮 -->
+      <button id="nextBtn" class="btn" onclick="toResetPage()" style="margin-top: 10px;">下一步</button>
       <div class="form-links">
-        <a href="reset.html" class="link">我已收到验证码 →</a>
+        <!-- 删除：我已收到验证码链接 -->
         <a href="index.html" class="link">返回登录</a>
       </div>
     </section>
   </div>
 
-  <script src="../../static/js/script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
