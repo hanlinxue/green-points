@@ -4,14 +4,14 @@
 <head>
   <meta charset="utf-8">
   <title>重设密码 - GreenPoints</title>
-  <link rel="stylesheet" href="../../static/css/style.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="eco-shell">
     <aside class="eco-illustration">
       <div class="illustration-content">
         <h1>重设密码</h1>
-        <p>请输入收到的验证码并设置新的登录密码。</p>
+        <p>请设置新的登录密码。</p>
         <div class="badge-row">
           <span class="badge-soft">验证码</span>
           <span class="badge-soft">安全校验</span>
@@ -25,15 +25,16 @@
         <h2>填写信息</h2>
       </div>
       <div class="input-group">
-        <input id="rp_id" class="input" placeholder="账号">
-        <input id="rp_code" class="input" placeholder="验证码">
+        <!-- 删除：账号、验证码输入框 -->
         <input id="rp_newpwd" type="password" class="input" placeholder="新密码">
+        <!-- 新增：确认新密码输入框 -->
+        <input id="rp_confirm_pwd" type="password" class="input" placeholder="确认新密码">
       </div>
       <button class="btn" onclick="resetPassword()">提交</button>
       <p style="text-align:center;margin-top:12px;"><a class="link" href="index.html">返回登录</a></p>
     </section>
   </div>
 
-  <script src="../../static/js/script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
