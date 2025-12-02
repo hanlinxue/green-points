@@ -4,7 +4,42 @@
 <head>
   <meta charset="utf-8">
   <title>登录 - GreenPoints</title>
-  <link rel="stylesheet" href="../../static/css/style.css">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* 轻量级补充样式（不会影响你原设计） */
+    .tab-switch {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e5e5e5;
+    }
+    .tab-btn {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      color: #5b6375;
+    }
+    .tab-btn.active {
+      color: #1d2a41;
+      border-bottom: 3px solid #1d2a41;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fade .25s; }
+
+    @keyframes fade { from {opacity:0;} to {opacity:1;} }
+
+    .code-btn {
+      margin-left: 10px;
+      padding: 8px 12px;
+      border: none;
+      background:#1d2a41;
+      color:white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size:14px;
+    }
+  </style>
 </head>
 <body>
   <div class="eco-shell">
@@ -22,28 +57,119 @@
     </aside>
 
     <section class="eco-form">
+
       <div class="form-header">
         <h2>用户登录</h2>
         <p>支持用户、商户、管理员账号，凭证一致即可登录。</p>
       </div>
-      <div class="input-group">
-        <input id="login_id" class="input" placeholder="账号 / 用户ID">
-        <input id="login_password" type="password" class="input" placeholder="密码">
+
+      <!-- 登录方式切换按钮 -->
+      <div class="tab-switch">
+        <div class="tab-btn active" onclick="switchTab('pwd')">账号密码登录</div>
+        <div class="tab-btn" onclick="switchTab('sms')">手机验证码登录</div>
       </div>
-      <div class="form-actions">
-        <label style="font-weight:600;color:#1d2a41">
-          <input id="rememberMe" type="checkbox" style="margin-right:8px;">记住我
-        </label>
-        <a href="{{ url_for('user.forgot') }}" class="link" style="font-size:14px;">忘记密码？</a>
+
+      <!-- ========== 账号密码登录========== -->
+      <div id="tab_pwd" class="tab-content active">
+        <div class="input-group">
+          <input id="login_id" class="input" placeholder="账号 / 用户ID">
+          <input id="login_password" class="input" placeholder="密码" type="password">
+        </div>
+
+        <div class="form-actions">
+          <label style="font-weight:600;color:#1d2a41">
+            <input id="rememberMe" type="checkbox" style="margin-right:8px;">记住我
+          </label>
+          <a href="forgot.html" class="link" style="font-size:14px;">忘记密码？</a>
+        </div>
+
+        <button class="btn" onclick="login()">立即登录</button>
       </div>
-      <button class="btn" onclick="login()">立即登录</button>
+
+      <!-- ========== 手机验证码登录========== -->
+      <div id="tab_sms" class="tab-content">
+        <div class="input-group">
+          <input id="phone" class="input" placeholder="手机号" maxlength="11">
+          
+          <div style="display:flex;align-items:center;margin-top:12px;">
+            <input id="sms_code" class="input" placeholder="短信验证码" style="flex:1;">
+            <button class="code-btn" onclick="sendCode()">获取验证码</button>
+          </div>
+        </div>
+
+        <button class="btn" onclick="loginBySMS()">手机号登录</button>
+      </div>
+
       <p style="text-align:center;margin-top:18px;font-size:14px;color:#5b6375;">
-        还没有账号？<a href="{{ url_for('user.register') }}" class="link">立即注册</a>
+        还没有账号？<a href="register.html" class="link">立即注册</a>
       </p>
     </section>
   </div>
 
-  <script src="../../static/js/script.js"></script>
-  <script>initLoginPage();</script>
+  <script src="script.js"></script>
+  <script>
+    initLoginPage();
+
+    function switchTab(type) {
+      document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(area => area.classList.remove("active"));
+
+      if (type === "pwd") {
+        document.querySelectorAll(".tab-btn")[0].classList.add("active");
+        document.getElementById("tab_pwd").classList.add("active");
+      } else {
+        document.querySelectorAll(".tab-btn")[1].classList.add("active");
+        document.getElementById("tab_sms").classList.add("active");
+      }
+    }
+
+  // 发送验证码函数（留API地址）
+async function sendCode() {
+  let phone = document.getElementById("phone").value;
+  if (!/^1[3-9][0-9]{9}$/.test(phone)) {
+    alert("请输入正确的手机号！");
+    return;
+  }
+
+  // ******** API 地址 ********
+  const res = await apiFetch("【你的发送验证码API地址】", { 
+    method: "POST", 
+    body: JSON.stringify({ phone })
+  });
+
+  // 可根据后端返回结果处理
+  if (res.code === 200) {
+    alert("验证码已发送！");
+  } else {
+    alert("验证码发送失败：" + res.msg);
+  }
+}
+
+// 短信登录函数（留API地址）
+async function loginBySMS() {
+  let phone = document.getElementById("phone").value;
+  let code = document.getElementById("sms_code").value;
+  if (!phone || !code) {
+    alert("请输入手机号和验证码！");
+    return;
+  }
+
+  // ******** API 地址 ********
+  const res = await apiFetch("【你的短信登录API地址】", { 
+    method: "POST", 
+    body: JSON.stringify({ phone, code })
+  });
+
+  // 可根据后端返回结果处理
+  if (res.code === 200) {
+    alert("手机号登录成功！");
+    // 登录成功后的操作（如存储token、跳转页面）
+    // localStorage.setItem("token", res.data.token);
+    // window.location.href = "/home";
+  } else {
+    alert("登录失败：" + res.msg);
+  }
+}
+  </script>
 </body>
 </html>
