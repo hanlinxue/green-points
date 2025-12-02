@@ -77,13 +77,39 @@ async function sendCode() {
   alert(res.data?.message || (res.ok ? "验证码已发送" : "发送失败"));
 }
 
+/* 跳转到重设密码页（传递账号/邮箱/验证码） */
+function toResetPage() {
+  const id = document.getElementById("fp_id")?.value.trim();
+  const email = document.getElementById("fp_email")?.value.trim();
+  const code = document.getElementById("fp_code")?.value.trim();
+  if (!id || !email) return alert("请填写账号与邮箱！");
+  if (!code) return alert("请输入验证码！");
+  window.location.href = `reset.html?id=${encodeURIComponent(id)}&email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}`;
+}
+
+
 /* 重设密码*/
 async function resetPassword() {
-  const id = document.getElementById("rp_id")?.value.trim();
-  const code = document.getElementById("rp_code")?.value.trim();
+  // 1. 读取URL中传递的账号/邮箱/验证码（核心修改）
+  const urlParams = new URLSearchParams(window.location.search);
+  const id = urlParams.get("id");
+  const email = urlParams.get("email");
+  const code = urlParams.get("code");
+
+  // 2. 获取新密码和确认新密码（核心修改）
   const pwd = document.getElementById("rp_newpwd")?.value.trim();
-  if (!id || !code || !pwd) return alert("请填写完整信息！");
-  const res = await apiFetch("/api/reset-password", { method: "POST", body: JSON.stringify({ id, code, password: pwd }) });
+  const confirmPwd = document.getElementById("rp_confirm_pwd")?.value.trim();
+  
+  // 3. 校验逻辑（核心修改）
+  if (!pwd || !confirmPwd) return alert("请填写新密码和确认密码！");
+  if (pwd !== confirmPwd) return alert("两次输入的密码不一致！");
+  if (!id || !code) return alert("验证信息缺失，请返回上一页重新操作！");
+
+  // 4. 调用重置密码API（补充email参数）
+  const res = await apiFetch("/api/reset-password", { 
+    method: "POST", 
+    body: JSON.stringify({ id, email, code, password: pwd }) 
+  });
   alert(res.data?.message || (res.ok ? "重设成功" : "重设失败"));
   if (res.ok) window.location.href = "index.html";
 }
@@ -851,3 +877,4 @@ window.merchantRequestWithdrawal = merchantRequestWithdrawal;
 window.redeemProduct = redeemProduct;
 window.fetchProducts = fetchProducts;
 window.fetchPointRecords = fetchPointRecords;
+window.toResetPage = toResetPage; 
