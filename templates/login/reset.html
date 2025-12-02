@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <title>重设密码 - GreenPoints</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../../static/css/style.css">
 </head>
 <body>
   <div class="eco-shell">
@@ -31,10 +31,10 @@
         <input id="rp_confirm_pwd" type="password" class="input" placeholder="确认新密码">
       </div>
       <button class="btn" onclick="resetPassword()">提交</button>
-      <p style="text-align:center;margin-top:12px;"><a class="link" href="index.html">返回登录</a></p>
+      <p style="text-align:center;margin-top:12px;"><a class="link" href="{{ url_for("user.index") }}">返回登录</a></p>
     </section>
   </div>
 
-  <script src="script.js"></script>
+  <script src="../../static/js/script.js"></script>
 </body>
 </html>

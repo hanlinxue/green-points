@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <title>找回密码 - GreenPoints</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../../static/css/style.css">
 </head>
 <body>
   <div class="eco-shell">
@@ -36,11 +36,11 @@
       <button id="nextBtn" class="btn" onclick="toResetPage()" style="margin-top: 10px;">下一步</button>
       <div class="form-links">
         <!-- 删除：我已收到验证码链接 -->
-        <a href="index.html" class="link">返回登录</a>
+        <a href="{{ url_for("user.index")}}" class="link">返回登录</a>
       </div>
     </section>
   </div>
 
-  <script src="script.js"></script>
+  <script src="../../static/js/script.js"></script>
 </body>
 </html>

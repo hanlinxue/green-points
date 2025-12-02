@@ -84,7 +84,7 @@ function toResetPage() {
   const code = document.getElementById("fp_code")?.value.trim();
   if (!id || !email) return alert("请填写账号与邮箱！");
   if (!code) return alert("请输入验证码！");
-  window.location.href = `reset.html?id=${encodeURIComponent(id)}&email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}`;
+  window.location.href = `/user/reset?id=${encodeURIComponent(id)}&email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}`;
 }
 
 

@@ -15,7 +15,7 @@ def index():
     return render_template('login/index.html')
 
 
-# 注册
+# register.html
 @user_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -123,6 +123,11 @@ def login():
 @user_bp.route('/forgot')
 def forgot():
     return render_template('login/forgot.html')
+
+
+@user_bp.route('/reset')
+def reset():
+    return render_template('login/reset.html')
 
 
 # products.html
