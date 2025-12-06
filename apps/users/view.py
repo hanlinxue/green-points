@@ -1,6 +1,6 @@
 import re
 
-from flask import Blueprint, request, render_template, jsonify
+from flask import Blueprint, request, render_template, jsonify, session, redirect, url_for
 
 from apps.administrators.models import Administrator
 from apps.merchants.models import Merchant
@@ -87,6 +87,13 @@ def login():
 
             if user.password != password:
                 return jsonify({"message": "密码错误"}), 400
+            # 登录成功 → 写 session
+            session["nickname"] = user.nickname
+            session["username"] = user.username
+            session["password"] = user.password
+            session["phone"] = user.phone
+            session["email"] = user.email
+
             return jsonify({
                 "message": "登录成功！",
                 "role": "user"
@@ -133,15 +140,97 @@ def reset():
 # products.html
 @user_bp.route('/user_index', methods=['GET', 'POST'])
 def user_index():
+    username = session.get("username")
+    if not username:
+        return redirect(url_for("user.login"))
     return render_template('users/products.html')
 
 
 # 个人中心
 @user_bp.route('/user_profile', methods=['GET', 'POST'])
 def user_profile():
-    if request.method == 'POST':
-        return render_template('users/user_profile.html')
     return render_template('users/user_profile.html')
+
+
+# 个人资料展示
+@user_bp.route('/user_info', methods=['GET', 'POST'])
+def user_info():
+    username = session.get("username")
+    if not username:
+        return jsonify({"error": "未登录"}), 401
+
+    user = User.query.filter_by(username=username).first()
+    print(user)
+    if not user:
+        return jsonify({"error": "用户不存在"}), 404
+    return jsonify({
+        "nickname": user.nickname or "",
+        "username": user.username or "",
+        "password": user.password or "",
+        "phone": user.phone or "",
+        "email": user.email or ""
+    })
+
+
+# 更新个人资料
+@user_bp.route('/user_profile/user_update', methods=['POST'])
+def update_user_profile():
+    # 1. 验证用户是否登录（session中是否有username）
+    username = session.get("username")
+    if not username:
+        return jsonify({"error": "未登录，请先登录！"}), 401
+
+    # 2. 验证请求格式（必须是JSON）
+    if not request.is_json:
+        return jsonify({"error": "请求格式错误，请提交JSON数据！"}), 400
+
+    # 3. 解析前端提交的参数
+    data = request.get_json()
+    nickname = data.get("nickname", "").strip()
+    phone = data.get("phone", "").strip()
+    email = data.get("email", "").strip()
+    password = data.get("password", "").strip()
+
+    if not nickname:
+        return jsonify({"error": "昵称不能为空！"}), 400
+
+    if not re.match(r'^\d{11}$', phone):
+        return jsonify({"error": "请输入正确的11位手机号！"}), 400
+
+    if phone and User.query.filter_by(phone=phone).filter(User.username != username).first():
+        return jsonify({"error": "该手机号已被其他账号绑定！"}), 400
+
+    if email and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        return jsonify({"error": "请输入正确的邮箱格式！"}), 400
+
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({"error": "用户不存在！"}), 404
+
+    # 6. 更新用户信息（按需更新，避免覆盖未修改的字段）
+    try:
+        user.nickname = nickname
+        if phone:
+            user.phone = phone
+        if email:
+            user.email = email
+        if password and password != "******":
+            user.password = password
+
+        db.session.commit()
+        return jsonify({"message": "资料更新成功！"}), 200
+
+    except Exception as e:
+        # 异常回滚，避免数据库锁死
+        db.session.rollback()
+        print(f"更新资料失败：{str(e)}")
+        return jsonify({"error": "服务器内部错误，更新失败！"}), 500
+
+
+# 用户收货地址
+@user_bp.route('/user_address', methods=['GET', 'POST'])
+def user_address():
+    return render_template('users/address.html')
 
 
 # 提交出行

@@ -106,7 +106,7 @@ async function resetPassword() {
   if (!id || !code) return alert("验证信息缺失，请返回上一页重新操作！");
 
   // 4. 调用重置密码API（补充email参数）
-  const res = await apiFetch("/api/reset-password", { 
+  const res = await apiFetch("/api/reset-password", {
     method: "POST", 
     body: JSON.stringify({ id, email, code, password: pwd }) 
   });
@@ -114,7 +114,7 @@ async function resetPassword() {
   if (res.ok) window.location.href = "index.html";
 }
 
-/* (用户浏览商品并兑换)*/
+/*用户浏览商品并兑换页面刷新*/
 async function initProductsPage() {
   await fetchProducts();
 }
@@ -586,51 +586,229 @@ function initUserProfile() {
 
 /* ----- 2. 拉取用户信息（头像、昵称、积分等） ----- */
 function fetchUserInfo() {
-  fetch("/api/user/info")
-    .then(res => res.json())
-    .then(data => {
-      if (!data) return;
-
-      // 基本信息
-      document.getElementById("userName").textContent = data.name || "未设置";
-      document.getElementById("userPhone").textContent = data.phone || "无";
-      document.getElementById("userPoints").textContent = data.points || 0;
-
-      // 可选项目：头像
-      if (data.avatar) {
-        document.getElementById("userAvatar").src = data.avatar;
+  // 1. 先处理用户基本信息，添加详细日志和错误处理
+  fetch("/user/user_info")
+    .then(res => {
+      // 校验响应状态是否成功（200-299）
+      if (!res.ok) {
+        throw new Error(`请求失败，状态码：${res.status}`);
       }
+      return res.json();
+    })
+    .then(data => {
+      // 打印返回数据，方便调试（按 F12 看控制台）
+      console.log("后端返回的用户信息：", data);
+
+      // 处理后端返回的错误信息
+      if (data.error) {
+        alert(`加载失败：${data.error}`);
+        // 未登录则跳回登录页
+        if (data.error === "未登录") {
+          window.location.href = "{{ url_for('user.login') }}";
+        }
+        return;
+      }
+
+      // 填入个人资料输入框（现在字段名完全匹配）
+      document.getElementById("profileNickname").value = data.nickname || "";
+      document.getElementById("profileAccount").value  = data.username || "";
+      document.getElementById("profilePassword").value = data.password || "";
+      document.getElementById("profilePhone").value    = data.phone || "";
+      document.getElementById("profileEmail").value    = data.email || "";
+
     })
     .catch(err => {
-      console.error("用户信息加载失败", err);
-      alert("加载用户信息失败");
+      console.error("用户信息加载失败详情：", err);
+      alert(`加载用户信息失败：${err.message}`);
+    });
+
+  // 2. 积分数据（添加错误处理）
+  fetch("/api/user/points")
+    .then(res => {
+      if (!res.ok) throw new Error(`积分请求失败：${res.status}`);
+      return res.json();
+    })
+    .then(data => {
+      document.getElementById("userPoints").innerText = data.points || 0;
+      document.getElementById("userTotalEarn").innerText = data.earned || 0;
+      document.getElementById("userTotalUsed").innerText = data.used || 0;
+    })
+    .catch(err => {
+      console.error("积分数据加载失败：", err);
+      document.getElementById("userPoints").innerText = "加载失败";
+      document.getElementById("userTotalEarn").innerText = "0";
+      document.getElementById("userTotalUsed").innerText = "0";
+    });
+
+  // 3. 积分流水（添加错误处理+兼容空数据）
+  fetch("/api/user/points/history")
+    .then(res => {
+      if (!res.ok) throw new Error(`积分流水请求失败：${res.status}`);
+      return res.json();
+    })
+    .then(list => {
+      renderList("pointHistory", list || []);
+    })
+    .catch(err => {
+      console.error("积分流水加载失败：", err);
+      document.getElementById("pointHistory").innerText = "暂无流水数据";
+    });
+
+  // 4. 兑换记录（添加错误处理+兼容空数据）
+  fetch("/api/user/orders")
+    .then(res => {
+      if (!res.ok) throw new Error(`兑换记录请求失败：${res.status}`);
+      return res.json();
+    })
+    .then(list => {
+      renderList("orderHistory", list || []);
+    })
+    .catch(err => {
+      console.error("兑换记录加载失败：", err);
+      document.getElementById("orderHistory").innerText = "暂无兑换记录";
     });
 }
 
+// 补全缺失的 renderList 函数（否则流水/订单会报错）
+function renderList(domId, list) {
+  const box = document.getElementById(domId);
+  box.innerHTML = "";
+
+  // 空数据处理
+  if (!Array.isArray(list) || list.length === 0) {
+    box.innerHTML = `<div style="padding: 20px; text-align: center; color: #999;">暂无数据</div>`;
+    return;
+  }
+
+  // 渲染列表（适配常见字段，可根据实际返回调整）
+  list.forEach(item => {
+    const row = document.createElement("div");
+    row.className = "list-row";
+    row.style = "padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;";
+    row.innerHTML = `
+      <div>${item.title || item.description || "未知记录"}</div>
+      <div>${item.time || item.create_time || ""}</div>
+      <div>${item.value || item.points || 0}</div>
+    `;
+    box.appendChild(row);
+  });
+}
+
+
+
 
 /* ----- 3. 更新个人资料 ----- */
-function updateUserProfile() {
-  const name = document.getElementById("editName").value;
-  const phone = document.getElementById("editPhone").value;
+// 全局变量：防止重复提交的锁
+let isSubmitting = false;
 
-  fetch("/api/user/update", {
+function saveUserProfile() {
+  // 1. 校验是否处于编辑模式（避免未编辑就提交）
+  const editBtn = document.getElementById("editBtn");
+  if (editBtn.innerText !== "取消") {
+    alert("请先点击「编辑」按钮进入编辑模式！");
+    return;
+  }
+
+  // 2. 防重复提交：如果正在提交，直接返回
+  if (isSubmitting) {
+    alert("正在保存中，请稍候...");
+    return;
+  }
+
+  // 3. 获取DOM元素并判空（避免元素不存在导致报错）
+  const nicknameEl = document.getElementById("profileNickname");
+  const accountEl = document.getElementById("profileAccount");
+  const passwordEl = document.getElementById("profilePassword");
+  const phoneEl = document.getElementById("profilePhone");
+  const emailEl = document.getElementById("profileEmail");
+
+  if (!nicknameEl || !accountEl || !passwordEl || !phoneEl || !emailEl) {
+    alert("页面元素加载异常，请刷新重试！");
+    return;
+  }
+
+  // 4. 获取输入值并做前端校验
+  const nickname = nicknameEl.value.trim();
+  const phone = phoneEl.value.trim();
+  const email = emailEl.value.trim();
+  const password = passwordEl.value.trim(); // 密码（注意：仅当不是******时才提交）
+
+  // 基础校验
+  if (!nickname) {
+    alert("昵称不能为空！");
+    nicknameEl.focus(); // 聚焦到错误输入框
+    return;
+  }
+
+  // 手机号格式校验（11位数字）
+  if (phone && !/^1[3-9]\d{9}$/.test(phone)) {
+    alert("请输入正确的11位手机号！");
+    phoneEl.focus();
+    return;
+  }
+
+  // 邮箱格式校验
+  if (email && !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+    alert("请输入正确的邮箱格式！");
+    emailEl.focus();
+    return;
+  }
+
+  // 5. 构造提交数据（仅提交需要修改的字段，排除账号/默认密码）
+  const body = {
+    nickname: nickname,
+    phone: phone,
+    email: email
+  };
+  // 仅当密码不是默认的******时，才提交密码（避免覆盖原有密码）
+  if (password !== "******" && password) {
+    body.password = password;
+  }
+  // 账号不允许修改，移除account字段
+  // body.account = accountEl.value; // 注释掉，禁止修改账号
+
+  // 6. 设置加载状态，防止重复提交
+  isSubmitting = true;
+  const saveBtn = document.getElementById("saveBtn");
+  const originalBtnText = saveBtn.innerText;
+  saveBtn.innerText = "保存中...";
+  saveBtn.disabled = true;
+
+  // 7. 发送请求（完善错误处理+响应解析）
+  fetch("/user/user_profile/user_update", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, phone })
+    body: JSON.stringify(body)
   })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        alert("资料已更新");
-        fetchUserInfo();
-      } else {
-        alert("更新失败：" + data.message);
-      }
-    })
-    .catch(err => {
-      console.error("更新用户资料失败", err);
-      alert("更新失败，请稍后再试");
-    });
+  .then(res => {
+    // 先校验响应状态码（200-299为成功）
+    if (!res.ok) {
+      throw new Error(`请求失败：${res.status}`);
+    }
+    return res.json();
+  })
+  .then(data => {
+    // 处理后端返回的业务提示
+    if (data.error) {
+      alert(`修改失败：${data.error}`);
+    } else {
+      alert(data.message || "资料已更新！");
+      toggleEdit(); // 退出编辑模式
+      // 可选：重新拉取最新的用户信息，保证页面数据同步
+      fetchUserInfo();
+    }
+  })
+  .catch(err => {
+    // 处理网络错误/解析错误等
+    console.error("资料更新失败：", err);
+    alert("修改失败！请检查网络或稍后重试。");
+  })
+  .finally(() => {
+    // 8. 恢复按钮状态，释放提交锁
+    isSubmitting = false;
+    saveBtn.innerText = originalBtnText;
+    saveBtn.disabled = false;
+  });
 }
 
 
@@ -832,31 +1010,38 @@ function processWithdrawal() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // 获取密码输入框和切换按钮元素
+    // 获取密码输入框和切换按钮元素（先判空）
     const passwordInput = document.getElementById('password');
     const togglePasswordBtn = document.getElementById('togglePassword');
 
-    // 为按钮添加点击事件
-    togglePasswordBtn.addEventListener('click', function() {
-        // 获取当前密码框的类型
-        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+    // 关键：只有两个元素都存在时，才绑定事件
+    if (passwordInput && togglePasswordBtn) {
+        // 为按钮添加点击事件
+        togglePasswordBtn.addEventListener('click', function() {
+            // 获取当前密码框的类型
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
 
-        // 切换密码框的类型（显示/隐藏密码）
-        passwordInput.setAttribute('type', type);
+            // 切换密码框的类型（显示/隐藏密码）
+            passwordInput.setAttribute('type', type);
 
-        // 获取按钮内的图标元素
-        const icon = togglePasswordBtn.querySelector('i');
-
-        // 切换图标（眼睛/眼睛划掉）
-        if (type === 'password') {
-            icon.classList.remove('fa-eye-slash');
-            icon.classList.add('fa-eye');
-        } else {
-            icon.classList.remove('fa-eye');
-            icon.classList.add('fa-eye-slash');
-        }
-      });
-    });
+            // 获取按钮内的图标元素（同样判空，避免报错）
+            const icon = togglePasswordBtn.querySelector('i');
+            if (icon) { // 新增：判空图标元素
+                // 切换图标（眼睛/眼睛划掉）
+                if (type === 'password') {
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                } else {
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                }
+            }
+        });
+    } else {
+        // 可选：调试日志，确认元素不存在的场景
+        console.warn("未找到密码输入框/切换按钮，跳过密码显示/隐藏事件绑定");
+    }
+});
 
 
 /*全局作用域*/

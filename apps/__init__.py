@@ -5,16 +5,18 @@ from apps.administrators.view import admin_bp
 from apps.merchants.view import merchant_bp
 from apps.users.view import user_bp
 from exts import init_exts
+import os
 
 
 def create_app():
     app = Flask(__name__, template_folder='../templates', static_folder='../static')
     # 预处理
     app.config.from_object(settings.Config)
+    app.config['SECRET_KEY'] = os.urandom(24)
     # 蓝图
-    app.register_blueprint(user_bp)
-    app.register_blueprint(merchant_bp)
-    app.register_blueprint(admin_bp)
+    app.register_blueprint(user_bp, url_prefix='/user')
+    app.register_blueprint(merchant_bp, url_prefix='/merchant')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
     # 数据库连接
     init_exts(app)
     return app

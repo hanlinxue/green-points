@@ -4,104 +4,153 @@
 <head>
   <meta charset="utf-8">
   <title>个人中心 - GreenPoints</title>
-    <link rel="stylesheet" href="../../static/css/style.css">
+  <link rel="stylesheet" href="../../static/css/style.css">
 </head>
+
 <body onload="initUserProfile()">
 
-  <div class="dashboard">
+<div class="dashboard">
 
-    <nav class="dash-nav">
-      <div class="brand">GreenPoints 商城</div>
-      <a href="{{ url_for('user.user_index') }}">全部商品</a>
-      <a class="active" href="#">个人中心</a>
-      <a href="{{ url_for('user.user_trip') }}">提交出行</a>
-      <a href="{{ url_for('user.user_out') }}">退出登录</a>
-    </nav>
+  <nav class="dash-nav">
+    <div class="brand">GreenPoints 商城</div>
+    <a href="{{ url_for('user.user_index') }}">全部商品</a>
+    <a class="active" href="#">个人中心</a>
+    <a href="{{ url_for('user.user_trip') }}">提交出行</a>
+    <a href="{{ url_for('user.user_out') }}">退出登录</a>
+  </nav>
 
-    <section class="dash-main">
+  <section class="dash-main">
 
-      <!-- 顶部信息栏 -->
-      <div class="dash-header">
-        <div>
-          <h1>个人中心</h1>
-          <p>查看积分余额、兑换记录、以及管理个人资料。</p>
-        </div>
-        <button class="btn" onclick="saveUserProfile()">保存资料</button>
+    <!-- 顶部信息栏 -->
+    <div class="dash-header">
+      <div>
+        <h1>个人中心</h1>
+        <p>查看积分余额、兑换记录，以及管理个人资料。</p>
+      </div>
+      <button id="saveBtn" class="btn" onclick="saveUserProfile()">保存资料</button>
+    </div>
+
+
+    <!-- 个人资料 -->
+    <div class="panel hover-lift">
+      <div class="panel-header">
+        <h2>个人资料</h2>
+        <button id="editBtn" class="btn small" onclick="toggleEdit()">编辑</button>
       </div>
 
-      <!-- 个人信息 -->
-      <div class="panel hover-lift">
-        <div class="panel-header">
-          <h2>个人资料</h2>
-          <span class="pill">可编辑</span>
-        </div>
-
-        <div class="form-row">
-          <label>姓名</label>
-          <input id="profileName" type="text" class="input" />
-        </div>
-
-        <div class="form-row">
-          <label>手机号码</label>
-          <input id="profilePhone" type="text" class="input" />
-        </div>
-
-        <div class="form-row">
-          <label>邮箱</label>
-          <input id="profileEmail" type="text" class="input" />
-        </div>
-
-        <div class="form-row">
-          <label>默认收货地址</label>
-          <input id="profileAddress" type="text" class="input" />
-        </div>
-
+      <div class="form-row">
+        <label>昵称</label>
+        <input id="profileNickname" type="text" class="input" readonly>
       </div>
 
-      <!-- 积分信息 -->
-      <div class="panel hover-lift">
-        <div class="panel-header">
-          <h2>积分账户</h2>
-          <span class="pill green">实时同步</span>
-        </div>
-
-        <div class="stat-grid">
-          <div class="stat-card">
-            <span>当前积分</span>
-            <strong id="userPoints">—</strong>
-            <p style="color:var(--muted);margin-top:6px;">可用于兑换商城商品</p>
-          </div>
-          <div class="stat-card">
-            <span>累计获得</span>
-            <strong id="userTotalEarn">—</strong>
-          </div>
-          <div class="stat-card">
-            <span>累计使用</span>
-            <strong id="userTotalUsed">—</strong>
-          </div>
-        </div>
+      <div class="form-row">
+        <label>账号</label>
+        <input id="profileAccount" type="text" class="input" readonly>
       </div>
 
-      <!-- 积分流水 -->
-      <div class="panel hover-lift">
-        <div class="panel-header">
-          <h2>积分流水</h2>
-        </div>
-        <div id="pointHistory" class="scroll-container"></div>
+      <div class="form-row">
+        <label>密码</label>
+        <input id="profilePassword" type="password" class="input" readonly>
       </div>
 
-      <!-- 兑换订单记录 -->
-      <div class="panel hover-lift">
-        <div class="panel-header">
-          <h2>兑换记录</h2>
-        </div>
-        <div id="orderHistory" class="scroll-container"></div>
+      <div class="form-row">
+        <label>手机号</label>
+        <input id="profilePhone" type="text" class="input" readonly>
       </div>
 
-    </section>
+      <div class="form-row">
+        <label>邮箱</label>
+        <input id="profileEmail" type="text" class="input" readonly>
+      </div>
 
-  </div>
+      <div class="form-row">
+        <label>收货地址</label>
+        <button class="btn gray" onclick="goAddressPage()">设置收货地址</button>
+      </div>
+    </div>
 
-  <script src="script.js"></script>
+    <!-- 积分信息 -->
+    <div class="panel hover-lift">
+      <div class="panel-header">
+        <h2>积分账户</h2>
+        <span class="pill green">实时同步</span>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <span>当前积分</span>
+          <strong id="userPoints">—</strong>
+          <p style="color:var(--muted);margin-top:6px;">可用于兑换商城商品</p>
+        </div>
+        <div class="stat-card">
+          <span>累计获得</span>
+          <strong id="userTotalEarn">—</strong>
+        </div>
+        <div class="stat-card">
+          <span>累计使用</span>
+          <strong id="userTotalUsed">—</strong>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- 积分流水 -->
+    <div class="panel hover-lift">
+      <div class="panel-header">
+        <h2>积分流水</h2>
+      </div>
+      <div id="pointHistory" class="scroll-container"></div>
+    </div>
+
+
+    <!-- 兑换记录 -->
+    <div class="panel hover-lift">
+      <div class="panel-header">
+        <h2>兑换记录</h2>
+      </div>
+      <div id="orderHistory" class="scroll-container"></div>
+    </div>
+
+
+  </section>
+</div>
+
+<script src="../../static/js/script.js"></script>
+
+<script>
+// 切换编辑模式
+function toggleEdit() {
+  let btn = document.getElementById("editBtn");
+  let isEditing = (btn.innerText === "编辑");
+
+  setReadOnly(!isEditing);
+
+  btn.innerText = isEditing ? "取消" : "编辑";
+}
+
+
+// 控制输入框可编辑 / 只读
+function setReadOnly(flag) {
+  const ids = [
+    "profileNickname",
+    "profileAccount",
+    "profilePassword",
+    "profilePhone",
+    "profileEmail"
+  ];
+
+  ids.forEach(id => {
+    document.getElementById(id).readOnly = flag;
+  });
+}
+
+
+// 跳转收货地址页面
+function goAddressPage() {
+  window.location.href = "/user/user_address";
+}
+
+</script>
+
 </body>
 </html>
