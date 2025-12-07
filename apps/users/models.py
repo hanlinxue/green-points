@@ -19,3 +19,15 @@ class User(db.Model):
     points = db.Column(db.Integer, default=0)
     # 增加一个字段
     # articles = db.relationship('Article', backref='tb_user')
+
+
+class Address(db.Model):
+    __tablename__ = 'tb_address'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    username = db.Column(db.String(50), db.ForeignKey('tb_user.username'), nullable=False)
+    name = db.Column(db.String(20), nullable=False)
+    phone = db.Column(db.String(11), nullable=False)
+    region = db.Column(db.String(100), nullable=False)
+    detail = db.Column(db.String(200), nullable=False)
+    is_default = db.Column(db.Boolean, default=0)
+    create_time = db.Column(db.DateTime, default=datetime.now)
