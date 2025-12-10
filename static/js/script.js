@@ -256,30 +256,95 @@ async function initAdminReview() {
   fetchWithdrawalRequests();
   fetchPointRecords();
 }
+
+// 待审核列表查询：适配后端字段和返回格式
+// 待审核列表查询：适配你的apiFetch返回格式（ok/data）
+// 修复语法错误 + 优化按钮样式，确保驳回按钮显示
 async function fetchPendingTrips() {
-  const res = await apiFetch("/api/admin/trips/pending");
+  // 接口路径按你后端实际路径调整，比如/admin/trips/pending
+  const res = await apiFetch("/admin/trips_pending");
   const el = document.getElementById("pendingTrips");
   if (!el) return;
   el.innerHTML = "";
-  const items = (res.ok && Array.isArray(res.data.trips)) ? res.data.trips : [];
+
+  // 核心调整：用res.ok判断，res.data.trips取列表（你的apiFetch返回data是后端的完整响应）
+  const items = (res.ok && Array.isArray(res.data.data?.trips)) ? res.data.data.trips : [];
+  // 统计待审核数量（保留原有逻辑）
   setText("metricPendingTrips", items.length);
-  if (items.length === 0) { el.innerHTML = "<div class='empty-state'>暂无待审。</div>"; return; }
+
+  if (items.length === 0) {
+    el.innerHTML = "<div class='empty-state'>暂无待审。</div>";
+    return;
+  }
+
+  // 渲染列表：字段适配（username/period），优化按钮样式确保显示
   items.forEach(t => {
     const node = document.createElement("div");
     node.className = "card";
-    node.innerHTML = `<div style="display:flex;justify-content:space-between">
-      <div><p style="margin:0"><strong>${t.userId || t.userName}</strong></p><p style="color:#6b7280;margin-top:6px">${t.mode} · ${t.distance} km</p></div>
-      <div><button class="btn" onclick="adminDecideTrip('${t.id}', true)">通过</button><button class="btn-ghost" style="margin-left:8px" onclick="adminDecideTrip('${t.id}', false)">驳回</button></div>
+    // 优化布局：避免按钮被挤压，调整样式确保驳回按钮可见
+    node.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+      <div style="flex:1">
+        <p style="margin:0"><strong>${t.username || '未知用户'}</strong></p>
+        <p style="color:#6b7280;margin-top:6px">周期：${t.period || '未知'}</p>
+        <p style="color:#6b7280;margin-top:4px">${t.mode} · ${t.distance || 0} km</p>
+        ${t.note ? `<p style="color:#6b7280;margin-top:4px;font-size:12px">备注：${t.note}</p>` : ""}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <!-- 通过按钮：保留原有样式 -->
+        <button class="btn" onclick="adminDecideTrip(${t.id}, true)">通过</button>
+        <!-- 驳回按钮：修改样式类为btn-danger，确保视觉可见，去掉white-space:nowrap避免挤压 -->
+        <button class="btn" onclick="adminDecideTrip(${t.id}, false)">驳回</button>
+      </div>
     </div>`;
     el.appendChild(node);
   });
 }
+
+// 审核操作：适配你的apiFetch返回格式
 async function adminDecideTrip(id, approve) {
-  if (!confirm(approve ? "确认通过并发放积分？" : "确认驳回？")) return;
-  const res = await apiFetch(`/api/admin/trips/${id}/decide`, { method: "POST", body: JSON.stringify({ approve })});
-  alert(res.data?.message || (res.ok ? "操作成功" : "操作失败"));
-  if (res.ok) fetchPendingTrips();
+  // 驳回时弹窗输入原因（保留原有逻辑）
+  let rejectReason = "";
+  if (!approve) {
+    rejectReason = prompt("请输入驳回原因（必填）：");
+
+    // ========== 核心修改：先判断是否点击取消（返回null） ==========
+    if (rejectReason === null) {
+      // 用户点击取消，直接返回，不提示任何信息
+      return;
+    }
+
+    // 再判断是否输入空内容（用户点确定但没填）
+    rejectReason = rejectReason.trim();
+    if (rejectReason === "") {
+      alert("驳回原因不能为空！");
+      return;
+    }
+  }
+
+  if (!confirm(approve ? "确认通过并发放积分？" : `确认驳回【原因：${rejectReason}】？`)) return;
+
+  try {
+    const res = await apiFetch(`/admin/trips_pending/${id}/decide`, {
+      method: "POST",
+      body: JSON.stringify({ approve: approve, rejectReason: rejectReason })
+    });
+
+    const message = res.data.message || (res.ok ? "操作成功" : "操作失败");
+    alert(message);
+
+    if (res.ok) await fetchPendingTrips();
+  } catch (err) {
+    console.error("审核操作失败：", err);
+    alert("审核操作失败，请稍后重试！");
+  }
 }
+
+// 修复setText函数的语法错误（关键！）
+function setText(elementId, text) {
+  const el = document.getElementById(elementId);
+  if (el) el.textContent = text; // 补充分号，闭合逻辑
+}
+
 async function fetchWithdrawalRequests() {
   const res = await apiFetch("/api/admin/withdrawals/pending");
   const el = document.getElementById("withdrawalRequests");

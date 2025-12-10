@@ -52,6 +52,62 @@
       color: #999;
       font-size: 0.85rem;
     }
+
+/* 出行记录项容器：相对定位，用于状态提示的绝对定位 */
+.trip-item {
+  position: relative;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+/* 状态提示样式：左上角悬浮 */
+.status-pending {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  background: #fef3c7;
+  color: #d97706;
+  font-size: 12px;
+  border-radius: 4px;
+}
+.status-approved {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  background: #d1fae5;
+  color: #059669;
+  font-size: 12px;
+  border-radius: 4px;
+}
+.status-rejected {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 12px;
+  border-radius: 4px;
+}
+/* 内容区：避开状态提示的位置 */
+.trip-content {
+  margin-top: 8px; /* 给状态提示留出空间 */
+}
+/* 提交时间样式（保留你原有样式） */
+.create-time {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+/* 加载状态样式（保留你原有样式） */
+.loading {
+  padding: 12px;
+  color: #999;
+  text-align: center;
+}
   </style>
 </head>
 <body>
@@ -92,9 +148,11 @@
           <label>出行方式</label>
           <select id="trip_mode">
             <option value="walk">步行</option>
+            <option value="run">跑步</option>
             <option value="bike">自行车</option>
-            <option value="public_transit">公共交通</option>
-            <option value="car">汽车</option>
+            <option value="bus">公交</option>
+            <option value="subway">地铁</option>
+            <option value="car">私家车(电动)</option>
           </select>
         </div>
 
@@ -137,65 +195,86 @@
       "car":"私家车(电动)"
     };
 
-    function initUserTripProfile() {
-      fetchUserTrips();
-    }
+   function initUserTripProfile() {
+  fetchUserTrips();
+}
 
-    // 优化出行记录查询：适配无status字段的表结构
-    function fetchUserTrips() {
-      const tripHistoryEl = document.getElementById("tripHistory");
-      if (!tripHistoryEl) return; // 防御：DOM不存在直接返回
+// 优化出行记录查询：适配新增的审核状态/积分字段
+function fetchUserTrips() {
+  const tripHistoryEl = document.getElementById("tripHistory");
+  if (!tripHistoryEl) return; // 防御：DOM不存在直接返回
 
-      // 显示加载状态
-      tripHistoryEl.innerHTML = `<div class="loading">加载中...</div>`;
+  // 显示加载状态
+  tripHistoryEl.innerHTML = `<div class="loading">加载中...</div>`;
 
-      fetch("/user/user_trip/get_trips") // 统一接口路径
-        .then(res => {
-          // 校验响应状态，非200抛错
-          if (!res.ok) throw new Error(`请求失败：状态码${res.status}`);
-          // 容错：先转文本，避免HTML解析JSON报错
-          return res.text().then(text => {
-            if (text.includes('<')) { // 返回HTML（404/500页面）
-              console.warn("出行记录接口返回HTML，按空数据处理");
-              return [];
-            }
-            try {
-              return JSON.parse(text);
-            } catch (e) {
-              console.error("出行记录JSON解析失败：", e);
-              return [];
-            }
-          });
-        })
-        .then(data => {
-          tripHistoryEl.innerHTML = "";
-          if (!Array.isArray(data) || data.length === 0) {
-            tripHistoryEl.innerHTML = `<p style="padding:12px;color:#999;">暂无出行记录</p>`;
-            return;
-          }
-          // 渲染记录：仅使用表结构中存在的字段（无status）
-          data.forEach(trip => {
-            const div = document.createElement("div");
-            div.className = "trip-item";
-            div.innerHTML = `
-              <div><strong>周期：</strong>${trip.period || '未知'}</div>
-              <div><strong>方式：</strong>${modeMap[trip.mode] || trip.mode}</div>
-              <div><strong>里程：</strong>${trip.distance || 0} 公里</div>
-              <div><strong>备注：</strong>${trip.note || '—'}</div>
-              <div class="create-time">提交时间：${trip.create_time || '未知'}</div>
-            `;
-            tripHistoryEl.appendChild(div);
-          });
-        })
-        .catch(err => {
-          console.error("加载出行记录失败：", err);
-          tripHistoryEl.innerHTML = `<p style="padding:12px;color:#999;">加载出行记录失败</p>`;
-          // 仅非404错误弹窗，避免路径错干扰
-          if (!err.message.includes("404")) {
-            alert("加载出行记录失败，请稍后重试！");
-          }
-        });
-    }
+  fetch("/user/user_trip/get_trips") // 统一接口路径
+    .then(res => {
+      // 校验响应状态，非200抛错
+      if (!res.ok) throw new Error(`请求失败：状态码${res.status}`);
+      // 容错：先转文本，避免HTML解析JSON报错
+      return res.text().then(text => {
+        if (text.includes('<')) { // 返回HTML（404/500页面）
+          console.warn("出行记录接口返回HTML，按空数据处理");
+          return [];
+        }
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          console.error("出行记录JSON解析失败：", e);
+          return [];
+        }
+      });
+    })
+    .then(data => {
+      tripHistoryEl.innerHTML = "";
+      if (!Array.isArray(data) || data.length === 0) {
+        tripHistoryEl.innerHTML = `<p style="padding:12px;color:#999;">暂无出行记录</p>`;
+        return;
+      }
+      // 渲染记录：新增审核状态/积分/驳回原因展示
+      data.forEach(trip => {
+        const div = document.createElement("div");
+        div.className = "trip-item";
+        // 核心：根据status生成状态提示（左上角）
+        let statusTip = "";
+        if (trip.status === "pending") {
+          statusTip = `<div class="status-pending">审核中（1个工作日内完成）</div>`;
+        } else if (trip.status === "approved") {
+          statusTip = `<div class="status-approved">已通过</div>`;
+        } else if (trip.status === "rejected") {
+          statusTip = `<div class="status-rejected">未通过：${trip.reject_reason || "无原因"}</div>`;
+        }
+
+        // 核心：审核通过时显示赚取的积分
+        let pointsHtml = "";
+        if (trip.status === "approved" && trip.earned_points > 0) {
+          pointsHtml = `<div style="color:#059669;margin-top:8px;"><strong>积分：</strong>+${trip.earned_points}</div>`;
+        }
+
+        // 保留原有字段，新增状态和积分展示
+        div.innerHTML = `
+          ${statusTip} <!-- 状态提示放在最外层 -->
+          <div class="trip-content">
+            <div><strong>周期：</strong>${trip.period || '未知'}</div>
+            <div><strong>方式：</strong>${modeMap[trip.mode] || trip.mode}</div>
+            <div><strong>里程：</strong>${trip.distance || 0} 公里</div>
+            <div><strong>备注：</strong>${trip.note || '—'}</div>
+            <div class="create-time">提交时间：${trip.create_time || '未知'}</div>
+            ${pointsHtml} <!-- 积分展示 -->
+          </div>
+        `;
+        tripHistoryEl.appendChild(div);
+      });
+    })
+    .catch(err => {
+      console.error("加载出行记录失败：", err);
+      tripHistoryEl.innerHTML = `<p style="padding:12px;color:#999;">加载出行记录失败</p>`;
+      // 仅非404错误弹窗，避免路径错干扰
+      if (!err.message.includes("404")) {
+        alert("加载出行记录失败，请稍后重试！");
+      }
+    });
+}
 
     // 出行周期格式校验
     function checkPeriodFormat() {
@@ -229,7 +308,7 @@
       submitBtn.disabled = true;
       submitBtn.innerText = "提交中..."; 
 
-      fetch("/api/user/trips", {
+      fetch("/user/user_trip/sub_trips", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({period, mode, distance, note})

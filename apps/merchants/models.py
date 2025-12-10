@@ -24,7 +24,7 @@ class GoodsStatusEnum(Enum):
 
 # 商品表（tb_goods）
 class Goods(db.Model):
-    __tablename__ = "tb_goods"  # 表名，和你的UserTrip表命名风格一致
+    __tablename__ = "tb_goods"
     # 核心主键
     id = db.Column(db.Integer, primary_key=True, autoincrement=True, comment="商品ID（主键）")
     # 商品基础信息
@@ -42,3 +42,27 @@ class Goods(db.Model):
     status = db.Column(db.String(20), default=GoodsStatusEnum.ON_SHELF.value,comment="商品状态：on_shelf/off_shelf/sold_out")
     create_time = db.Column(db.DateTime, default=datetime.now, comment="（上架时间）")
     update_time = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, comment="商品信息更新时间")
+
+
+# 订单表
+class Order(db.Model):
+    __tablename__ = "tb_order"  # 指定表名
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True, comment="订单主键ID")
+    order_no = db.Column(db.String(32), unique=True, nullable=False, comment="订单编号")
+    user_id = db.Column(db.Integer, db.ForeignKey("tb_user.id"), nullable=False, comment="用户ID")
+    goods_id = db.Column(db.Integer, db.ForeignKey("tb_goods.id"), nullable=False, comment="商品ID")
+    merchant_id = db.Column(db.Integer, db.ForeignKey("tb_merchant.id"), nullable=False, comment="商户ID")
+    address_id = db.Column(db.Integer, db.ForeignKey("tb_address.id"), default=None, comment="收货地址ID")
+    point_amount = db.Column(db.Float(10, 2), nullable=False, default=0.00, comment="消耗积分数量")
+    order_status = db.Column(db.SmallInteger, nullable=False, default=0, comment="订单状态：0-创建中 1-已扣积分 2-商户已接单 3-已发货 4-完成 5-取消 6-售后中")
+    logistics_no = db.Column(db.String(64), default=None, comment="物流单号")
+    logistics_company = db.Column(db.String(32), default=None, comment="物流公司名称")
+    create_time = db.Column(db.DateTime, nullable=False, default=datetime.now, comment="创建时间")
+    update_time = db.Column(db.DateTime, nullable=False, default=datetime.now, onupdate=datetime.now,comment="更新时间")
+    pay_time = db.Column(db.DateTime, default=None, comment="积分扣除成功时间")
+    ship_time = db.Column(db.DateTime, default=None, comment="商户发货时间")
+    finish_time = db.Column(db.DateTime, default=None, comment="订单完成时间")
+    cancel_time = db.Column(db.DateTime, default=None, comment="订单取消时间")
+    cancel_reason = db.Column(db.String(100), default=None, comment="取消原因")
+    remark = db.Column(db.String(200), default=None, comment="订单备注")
+    is_delete = db.Column(db.SmallInteger, nullable=False, default=0, comment="软删除标识")

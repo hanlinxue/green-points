@@ -63,3 +63,8 @@ class UserTrip(db.Model):
     distance = db.Column(db.Float, nullable=False, comment="出行里程（公里）")
     note = db.Column(db.Text, nullable=True, comment="出行备注（可选）")
     create_time = db.Column(db.DateTime, default=datetime.now, comment="记录创建时间")
+
+    status = db.Column(db.String(20), default="pending", nullable=False, comment="审核状态：pending-审核中，approved-通过，rejected-驳回")
+    audit_time = db.Column(db.DateTime, nullable=True, comment="审核完成时间")
+    audit_admin = db.Column(db.String(50), nullable=True, comment="审核管理员用户名")
+    reject_reason = db.Column(db.String(200), nullable=True, comment="驳回原因（可选）")

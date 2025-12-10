@@ -1,6 +1,7 @@
 import re
-
-from flask import Blueprint, request, render_template, jsonify, session, redirect, url_for
+import redis
+import json
+from flask import Blueprint, request, render_template, jsonify, session, redirect, url_for, g
 
 from apps.administrators.models import *
 from apps.merchants.models import *
@@ -8,6 +9,20 @@ from apps.users.models import *
 from exts import db
 
 user_bp = Blueprint('user', __name__, url_prefix='/user')
+
+
+# %%
+# Redis连接
+def get_redis_conn():
+    """获取Redis连接（复用）"""
+    if not hasattr(g, 'redis_conn'):
+        g.redis_conn = redis.Redis(
+            host='localhost',  # 本地Redis，生产环境改地址
+            port=6379,
+            db=0,
+            decode_responses=False
+        )
+    return g.redis_conn
 
 
 @user_bp.route('/')
@@ -585,6 +600,7 @@ def user_trip():
     return render_template('users/user_trip.html')
 
 
+# 显示提交的出行记录
 @user_bp.route('/user_trip/get_trips', methods=['GET', 'POST'])
 def get_trips():
     # 1. 登录验证：从session获取用户名（未登录返回空数组，避免前端弹窗）
@@ -598,27 +614,107 @@ def get_trips():
             .order_by(UserTrip.create_time.desc()) \
             .all()
 
-        # 3. 构造返回数据（字段完全匹配前端需要的period/mode/distance/note）
+        # 3. 构造返回数据（新增审核状态+单条记录积分）
         result = []
+        # 预查询所有积分规则（避免循环内多次查询数据库，提升性能）
+        point_rules = {rule.trip_mode: rule for rule in PointRule.query.all()}
+
         for trip in trip_list:
-            # 格式化创建时间（可选，前端可展示）
+            # 基础字段（保留原有逻辑）
             create_time = trip.create_time.strftime("%Y-%m-%d %H:%M:%S") if trip.create_time else ""
+            # 初始化单条记录赚取的积分（默认0）
+            earned_points = 0
+
+            # 仅审核通过时计算该记录的积分
+            if trip.status == "approved":
+                # 匹配该出行方式的积分规则
+                rule = point_rules.get(trip.mode)
+                if rule:
+                    # 计算积分（和你审核时发放积分的逻辑完全一致）
+                    carbon_reduction = trip.distance * rule.carbon_reduction_coeff
+                    earned_points = int(round(carbon_reduction * rule.point_exchange_coeff, 0))
+
+            # 构造单条记录（新增所有需要的字段）
             result.append({
                 "id": trip.id,
                 "period": trip.period,
                 "mode": trip.mode,
                 "distance": trip.distance,
-                "note": trip.note,
-                "create_time": create_time  # 可选：前端可选择是否展示
+                "note": trip.note or "",  # 空值处理为""，避免前端undefined
+                "create_time": create_time,
+                # 新增审核相关字段
+                "status": trip.status,  # pending/approved/rejected
+                "reject_reason": trip.reject_reason or "",  # 驳回原因，空则返回""
+                "audit_time": trip.audit_time.strftime("%Y-%m-%d %H:%M:%S") if trip.audit_time else "",  # 审核时间格式化
+                # 新增单条记录赚取的积分（仅approved时有值）
+                "earned_points": earned_points
             })
 
-        # 4. 返回200状态码 + JSON数组（前端走then块，不弹窗）
+        # 4. 返回200状态码 + JSON数组（保持原有格式）
         return jsonify(result), 200
 
     except Exception as e:
         # 异常处理：打印错误，返回空数组（避免前端进catch弹窗）
         print(f"查询用户出行记录失败：{str(e)}")
         return jsonify([]), 200
+
+
+@user_bp.route('/user_trip/sub_trips', methods=['GET', 'POST'])
+def submit_user_trip():
+    # 1. 校验用户登录态（你的原有逻辑，保留）
+    username = session.get("username")
+    if not username:
+        return jsonify({"success": False, "message": "请先登录！"}), 401
+
+    # 2. 接收并校验请求参数（你的原有逻辑，保留）
+    try:
+        data = request.get_json()
+        period = data.get("period", "").strip()
+        mode = data.get("mode", "").strip()
+        distance = float(data.get("distance", 0))
+        note = data.get("note", "").strip()
+    except Exception as e:
+        return jsonify({"success": False, "message": "参数格式错误！"}), 400
+
+    # 3. 业务规则校验（你的原有逻辑，保留）
+    # 3.1 周期格式校验（YYYY-MM-DD - YYYY-MM-DD）
+    period_pattern = re.compile(r'^\d{4}-\d{2}-\d{2}\s+-\s+\d{4}-\d{2}-\d{2}$')
+    if not period or not period_pattern.match(period):
+        return jsonify({"success": False, "message": "出行周期格式错误（示例：2025-11-01 - 2025-11-07）！"}), 400
+
+    # 3.2 出行方式校验（仅允许指定值）
+    allowed_modes = ["walk", "run", "bike", "bus", "subway", "car"]
+    if mode not in allowed_modes:
+        return jsonify({"success": False, "message": "不支持的出行方式！"}), 400
+
+    # 3.3 里程校验（≥0.1公里）
+    if distance < 0.1:
+        return jsonify({"success": False, "message": "里程必须≥0.1公里！"}), 400
+
+    # 4. 保存出行记录到数据库（修改：新增status=pending）
+    try:
+        new_trip = UserTrip(
+            username=username,
+            period=period,
+            mode=mode,
+            distance=distance,
+            note=note,
+            create_time=datetime.now(),
+            status="pending"  # 新增：标记为审核中（也可在模型设default，这里显式传更清晰）
+        )
+        db.session.add(new_trip)
+        db.session.commit()
+
+        # 6. 返回成功响应（修改提示语：强调审核中）
+        return jsonify({
+            "success": True,
+            "message": "出行记录提交成功！该记录正在审核中，一个工作日内完成审核～"
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"提交出行记录失败：{str(e)}")
+        return jsonify({"success": False, "message": "服务器错误，提交失败！"}), 500
 
 
 # 退出登录
