@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <title>提交出行 - GreenPoints</title>
-      <link rel="stylesheet" href="../../static/css/style.css">
+  <link rel="stylesheet" href="../../static/css/style.css">
   <style>
     .panel input, .panel select, .panel textarea {
       width: 100%;
@@ -37,29 +37,42 @@
       color: #fff;
       font-size: 0.8rem;
     }
+    .loading {
+      padding: 12px;
+      text-align: center;
+      color: #999;
+    }
+    /* 禁用按钮样式 */
+    .btn:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .create-time {
+      margin-top: 8px;
+      color: #999;
+      font-size: 0.85rem;
+    }
   </style>
 </head>
-<body onload="initUserTripProfile()">
+<body>
 
   <div class="dashboard">
-
     <nav class="dash-nav">
-      <div class="brand">GreenPoints 商城</div>
+      <div class="brand">绿色出行商城</div>
       <a href="{{ url_for('user.user_index') }}">全部商品</a>
-      <a href="{{ url_for('user.user_profile') }}">个人中心</a>
       <a class="active" href="#">提交出行</a>
+      <a href="{{ url_for('user.user_profile') }}">个人中心</a>
       <a href="{{ url_for('user.user_out') }}">退出登录</a>
     </nav>
 
     <section class="dash-main">
-
       <!-- 顶部信息栏 -->
       <div class="dash-header">
         <div>
           <h1>提交出行记录</h1>
           <p>记录您的绿色出行行为，积分实时到账。</p>
         </div>
-        <button class="btn" onclick="submitTrip()">提交记录</button>
+        <button id="submitBtn" class="btn" onclick="submitTrip()">提交记录</button>
       </div>
 
       <!-- 出行记录表单 -->
@@ -71,7 +84,8 @@
 
         <div class="form-row">
           <label>出行周期</label>
-          <input id="trip_period" placeholder="如：2025-11-01 ~ 2025-11-07">
+          <input id="trip_period" placeholder="如：2025-11-01 - 2025-11-07" onblur="checkPeriodFormat()">
+          <small id="periodTip" style="color:red;display:none;">请输入正确格式（如：2025-11-01 - 2025-11-07）</small>
         </div>
 
         <div class="form-row">
@@ -86,7 +100,7 @@
 
         <div class="form-row">
           <label>里程（公里）</label>
-          <input id="trip_distance" type="number" step="0.1" placeholder="请输入里程">
+          <input id="trip_distance" type="number" step="0.1" min="0.1" placeholder="请输入里程（≥0.1）">
         </div>
 
         <div class="form-row">
@@ -104,73 +118,158 @@
           <!-- 由 JS 填充 -->
         </div>
       </div>
-
     </section>
-
   </div>
 
   <script>
+    // 替换body onload，用更可靠的DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', function() {
+      initUserTripProfile();
+    });
+
+    // 出行方式英文转中文映射
+    const modeMap = {
+      'walk': '步行',
+      'run': '跑步',
+      'bike': '自行车',
+      "bus":"公交车" ,
+      "subway": "地铁" ,
+      "car":"私家车(电动)"
+    };
+
     function initUserTripProfile() {
       fetchUserTrips();
     }
 
+    // 优化出行记录查询：适配无status字段的表结构
     function fetchUserTrips() {
-      fetch("/user_trip")
-        .then(res => res.json())
+      const tripHistoryEl = document.getElementById("tripHistory");
+      if (!tripHistoryEl) return; // 防御：DOM不存在直接返回
+
+      // 显示加载状态
+      tripHistoryEl.innerHTML = `<div class="loading">加载中...</div>`;
+
+      fetch("/user/user_trip/get_trips") // 统一接口路径
+        .then(res => {
+          // 校验响应状态，非200抛错
+          if (!res.ok) throw new Error(`请求失败：状态码${res.status}`);
+          // 容错：先转文本，避免HTML解析JSON报错
+          return res.text().then(text => {
+            if (text.includes('<')) { // 返回HTML（404/500页面）
+              console.warn("出行记录接口返回HTML，按空数据处理");
+              return [];
+            }
+            try {
+              return JSON.parse(text);
+            } catch (e) {
+              console.error("出行记录JSON解析失败：", e);
+              return [];
+            }
+          });
+        })
         .then(data => {
-          const list = document.getElementById("tripHistory");
-          list.innerHTML = "";
-          if (!data || data.length === 0) {
-            list.innerHTML = `<p style="padding:12px;color:#999;">暂无出行记录</p>`;
+          tripHistoryEl.innerHTML = "";
+          if (!Array.isArray(data) || data.length === 0) {
+            tripHistoryEl.innerHTML = `<p style="padding:12px;color:#999;">暂无出行记录</p>`;
             return;
           }
+          // 渲染记录：仅使用表结构中存在的字段（无status）
           data.forEach(trip => {
             const div = document.createElement("div");
             div.className = "trip-item";
             div.innerHTML = `
-              <div><strong>周期：</strong>${trip.period}</div>
-              <div><strong>方式：</strong>${trip.mode}</div>
-              <div><strong>里程：</strong>${trip.distance} 公里</div>
+              <div><strong>周期：</strong>${trip.period || '未知'}</div>
+              <div><strong>方式：</strong>${modeMap[trip.mode] || trip.mode}</div>
+              <div><strong>里程：</strong>${trip.distance || 0} 公里</div>
               <div><strong>备注：</strong>${trip.note || '—'}</div>
-              <div><span class="pill">${trip.status === 'approved' ? '已审核' : '待审核'}</span></div>
+              <div class="create-time">提交时间：${trip.create_time || '未知'}</div>
             `;
-            list.appendChild(div);
+            tripHistoryEl.appendChild(div);
           });
         })
         .catch(err => {
-          console.error(err);
-          alert("加载出行记录失败");
+          console.error("加载出行记录失败：", err);
+          tripHistoryEl.innerHTML = `<p style="padding:12px;color:#999;">加载出行记录失败</p>`;
+          // 仅非404错误弹窗，避免路径错干扰
+          if (!err.message.includes("404")) {
+            alert("加载出行记录失败，请稍后重试！");
+          }
         });
     }
 
+    // 出行周期格式校验
+    function checkPeriodFormat() {
+      const period = document.getElementById("trip_period").value.trim();
+      const periodTip = document.getElementById("periodTip");
+      // 简单校验：包含“YYYY-MM-DD - YYYY-MM-DD”格式
+      const reg = /^\d{4}-\d{2}-\d{2}\s+-\s+\d{4}-\d{2}-\d{2}$/;
+      if (period && !reg.test(period)) {
+        periodTip.style.display = 'inline';
+      } else {
+        periodTip.style.display = 'none';
+      }
+    }
+
+    // 优化提交函数：适配无status字段，移除审核相关提示
     function submitTrip() {
+      const submitBtn = document.getElementById("submitBtn");
       const period = document.getElementById("trip_period").value.trim();
       const mode = document.getElementById("trip_mode").value;
       const distance = parseFloat(document.getElementById("trip_distance").value);
       const note = document.getElementById("trip_note").value.trim();
+      const periodTip = document.getElementById("periodTip");
 
-      if (!period || !mode || isNaN(distance)) return alert("请填写完整信息");
+      // 更严谨的表单验证
+      if (!period) return alert("请填写出行周期");
+      if (periodTip.style.display === 'inline') return alert("请输入正确的出行周期格式（如：2025-11-01 ~ 2025-11-07）");
+      if (!mode) return alert("请选择出行方式");
+      if (isNaN(distance) || distance <= 0) return alert("请输入大于0的里程数");
+
+      // 防重复提交：禁用按钮
+      submitBtn.disabled = true;
+      submitBtn.innerText = "提交中..."; 
 
       fetch("/api/user/trips", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({period, mode, distance, note})
       })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`提交失败：状态码${res.status}`);
+        return res.text().then(text => {
+          if (text.includes('<')) {
+            throw new Error("后端返回非JSON数据");
+          }
+          try {
+            return JSON.parse(text);
+          } catch (e) {
+            throw new Error("JSON解析失败");
+          }
+        });
+      })
       .then(data => {
         if (data.success) {
-          alert("提交成功，等待审核");
+          alert("提交成功！"); // 移除“等待审核”，适配无status字段
+          // 重置表单
+          document.getElementById("trip_period").value = "";
+          document.getElementById("trip_distance").value = "";
+          document.getElementById("trip_note").value = "";
+          // 重新加载记录
           fetchUserTrips();
         } else {
           alert("提交失败：" + (data.message || "未知错误"));
         }
       })
       .catch(err => {
-        console.error(err);
-        alert("提交出行记录失败");
+        console.error("提交出行记录失败：", err);
+        alert("提交出行记录失败，请稍后重试！");
+      })
+      .finally(() => {
+        // 恢复按钮（无论成功/失败）
+        submitBtn.disabled = false;
+        submitBtn.innerText = "提交记录";
       });
     }
   </script>
-
 </body>
 </html>

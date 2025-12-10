@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <title>账户管理 - 管理后台</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../../static/css/style.css">
 </head>
 
 <body onload="initAdminUsers()">
@@ -14,10 +14,10 @@
     <!-- 左侧导航 -->
     <nav class="dash-nav">
       <div class="brand">绿色出行管理平台</div>
-      <a href="admin.html">审核中心</a>
+      <a href="{{ url_for('admin.admin_index') }}">审核中心</a>
       <a class="active" href="#">账户管理</a>
-      <a href="point_roles.html">积分兑换规则</a>
-      <a href="index.html">退出登录</a>
+      <a href="{{ url_for("admin.point_rules") }}">积分兑换规则</a>
+      <a href="{{ url_for("user.index") }}">退出登录</a>
     </nav>
 
     <div class="dash-main">
@@ -95,6 +95,6 @@
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <script src="../../static/js/script.js"></script>
 </body>
 </html>

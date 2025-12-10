@@ -15,6 +15,7 @@ def index():
     return render_template('login/index.html')
 
 
+# %%注册及登录
 # register.html
 @user_bp.route('/register', methods=['GET', 'POST'])
 def register():
@@ -107,6 +108,11 @@ def login():
             if merchant.password != password:
                 return jsonify({"message": "密码错误"}), 400
 
+            session["username"] = merchant.username
+            session["password"] = merchant.password
+            session["phone"] = merchant.phone
+            session["email"] = merchant.email
+
             return jsonify({
                 "message": "登录成功！",
                 "role": "merchant"
@@ -120,6 +126,10 @@ def login():
             if admin.password != password:
                 return jsonify({"message": "密码错误"}), 400
 
+            session["adminname"] = admin.adminname
+            session["password"] = admin.password
+            session["phone"] = admin.phone
+            session["email"] = admin.email
             return jsonify({
                 "message": "登录成功！",
                 "role": "admin"
@@ -137,21 +147,26 @@ def reset():
     return render_template('login/reset.html')
 
 
+# %%用户界面
 # products.html
 @user_bp.route('/user_index', methods=['GET', 'POST'])
 def user_index():
     username = session.get("username")
     if not username:
-        return redirect(url_for("user.login"))
+        return redirect(url_for("user.index"))
     return render_template('users/products.html')
 
 
 # 个人中心
 @user_bp.route('/user_profile', methods=['GET', 'POST'])
 def user_profile():
+    username = session.get("username")
+    if not username:
+        return redirect(url_for("user.index"))
     return render_template('users/user_profile.html')
 
 
+# %%个人中心
 # 个人资料展示
 @user_bp.route('/user_info', methods=['GET', 'POST'])
 def user_info():
@@ -227,6 +242,115 @@ def update_user_profile():
         return jsonify({"error": "服务器内部错误，更新失败！"}), 500
 
 
+# 显示积分
+@user_bp.route('/user_profile/user_points', methods=['GET', 'POST'])
+def get_user_points():
+    # 1. 登录验证：校验用户是否已登录（session中是否有username）
+    username = session.get("username")
+    if not username:
+        # 返回401状态码，前端res.ok会识别为失败，进入catch
+        return jsonify({"error": "未登录，请先登录！"}), 401
+
+    try:
+        # 2. 查询当前用户的积分数据（容错：用户无积分记录则初始化）
+        user = User.query.filter_by(username=username).first()
+
+        # 3. 构造返回数据（和前端接收的字段完全匹配）
+        result = {
+            "points": user.now_points,  # 当前积分
+            "earned": user.all_points,  # 总获得积分
+            "used": user.use_points  # 总使用积分
+        }
+
+        # 4. 返回200状态码 + JSON数据（前端res.ok为true）
+        return jsonify(result), 200
+
+    except Exception as e:
+        # 捕获所有异常（数据库错误、查询失败等）
+        print(f"查询用户积分失败：{str(e)}")
+        # 返回500状态码 + 错误信息，前端进入catch
+        return jsonify({"error": "积分数据查询失败，请稍后重试！"}), 500
+
+
+# 积分流水
+@user_bp.route('/user_profile/user_history', methods=['GET', 'POST'])
+def get_history():
+    # 1. 登录验证
+    username = session.get("username")
+    if not username:
+        return jsonify({"error": "未登录，请先登录！"}), 401
+
+    try:
+        # 2. 查询当前用户所有积分流水（按时间倒序，最新的在前）
+        flow_list = PointsFlow.query.filter_by(username=username) \
+            .order_by(PointsFlow.create_time.desc()) \
+            .all()
+
+        # 3. 构造返回数据（适配前端渲染，格式化时间）
+        result = []
+        for flow in flow_list:
+            # 统一格式化时间（比如：2025-12-08 14:30:25）
+            create_time = flow.create_time.strftime("%Y-%m-%d %H:%M:%S") if flow.create_time else ""
+
+            result.append({
+                "id": flow.id,
+                "change_type": flow.change_type,  # 获得/扣除
+                "reason": flow.reason,  # 出行/兑换商品/积分过期等
+                "points": flow.points,  # 变动数量
+                "balance": flow.balance,  # 变动后余额
+                "create_time": create_time,  # 格式化后的时间
+                # 兑换专属字段（非兑换场景为null，前端可忽略）
+                "goods_name": flow.goods_name,
+                "exchange_status": flow.exchange_status
+            })
+
+        # 4. 返回空数组（无数据）或流水列表，状态码200
+        return jsonify(result), 200
+
+    except Exception as e:
+        print(f"查询积分流水失败：{str(e)}")
+        return jsonify({"error": "积分流水查询失败，请稍后重试！"}), 500
+
+
+# 兑换记录
+@user_bp.route('/user_profile/user_orders', methods=['GET', 'POST'])
+def get_exchange_orders():
+    # 1. 登录验证
+    username = session.get("username")
+    if not username:
+        return jsonify({"error": "未登录，请先登录！"}), 401
+
+    try:
+        # 2. 筛选兑换相关记录（reason=兑换商品 + goods_id不为空）
+        order_list = PointsFlow.query.filter(
+            PointsFlow.username == username,
+            PointsFlow.reason == "兑换商品",
+            PointsFlow.goods_id.isnot(None)  # 仅筛选有商品ID的兑换记录
+        ).order_by(PointsFlow.create_time.desc()).all()
+
+        # 3. 构造兑换记录专属返回数据（适配前端渲染）
+        result = []
+        for order in order_list:
+            create_time = order.create_time.strftime("%Y-%m-%d %H:%M:%S") if order.create_time else ""
+
+            result.append({
+                "order_id": order.id,  # 用流水ID作为订单ID
+                "goods_name": order.goods_name,  # 兑换商品名称
+                "use_points": abs(order.points),  # 消耗的积分（取绝对值，因为扣除是负数）
+                "exchange_time": create_time,  # 兑换时间
+                "status": order.exchange_status or "已兑换",  # 兑换状态（默认已兑换）
+                "goods_id": order.goods_id  # 商品ID（前端可选）
+            })
+
+        # 4. 返回空数组（无兑换记录）或兑换列表，状态码200
+        return jsonify(result), 200
+
+    except Exception as e:
+        print(f"查询兑换记录失败：{str(e)}")
+        return jsonify({"error": "兑换记录查询失败，请稍后重试！"}), 500
+
+
+# %%收货地址
 # 用户收货地址
 @user_bp.route('/user_address', methods=['GET', 'POST'])
 def user_address():
@@ -451,12 +575,50 @@ def update_address(id):
         return jsonify({"error": "更新地址失败，请稍后重试！"}), 500
 
 
+# %%用户出行
 # 提交出行
 @user_bp.route('/user_trip', methods=['GET', 'POST'])
 def user_trip():
-    if request.method == 'POST':
-        return render_template('users/user_trip.html')
+    username = session.get("username")
+    if not username:
+        return redirect(url_for("user.login"))
     return render_template('users/user_trip.html')
+
+
+@user_bp.route('/user_trip/get_trips', methods=['GET', 'POST'])
+def get_trips():
+    # 1. 登录验证：从session获取用户名（未登录返回空数组，避免前端弹窗）
+    username = session.get("username")
+    if not username:
+        return jsonify([]), 200  # 未登录返回空数组，前端显示“暂无出行记录”
+
+    try:
+        # 2. 查询当前用户的出行记录（按创建时间倒序，最新的在前）
+        trip_list = UserTrip.query.filter_by(username=username) \
+            .order_by(UserTrip.create_time.desc()) \
+            .all()
+
+        # 3. 构造返回数据（字段完全匹配前端需要的period/mode/distance/note）
+        result = []
+        for trip in trip_list:
+            # 格式化创建时间（可选，前端可展示）
+            create_time = trip.create_time.strftime("%Y-%m-%d %H:%M:%S") if trip.create_time else ""
+            result.append({
+                "id": trip.id,
+                "period": trip.period,
+                "mode": trip.mode,
+                "distance": trip.distance,
+                "note": trip.note,
+                "create_time": create_time  # 可选：前端可选择是否展示
+            })
+
+        # 4. 返回200状态码 + JSON数组（前端走then块，不弹窗）
+        return jsonify(result), 200
+
+    except Exception as e:
+        # 异常处理：打印错误，返回空数组（避免前端进catch弹窗）
+        print(f"查询用户出行记录失败：{str(e)}")
+        return jsonify([]), 200
 
 
 # 退出登录

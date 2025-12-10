@@ -11,3 +11,17 @@ class Administrator(db.Model):
     phone = db.Column(db.String(11), unique=True, nullable=False)
     email = db.Column(db.String(30))
     rdatetime = db.Column(db.DateTime, default=datetime.now)
+
+
+class PointRule(db.Model):
+    __tablename__ = "tb_point_rule"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True, comment="规则ID")
+    # 基础字段（出行方式）
+    trip_mode = db.Column(db.String(30), nullable=False, unique=True, comment="出行方式（walk/bike/public_transit/car）")
+    # 碳减排核心字段
+    carbon_reduction_coeff = db.Column(db.Float, nullable=False, default=0.0, comment="碳减排系数（kg CO₂/公里）")
+    point_exchange_coeff = db.Column(db.Float, nullable=False, default=0.0, comment="积分兑换系数（积分/kg CO₂）")
+    # 备注&时间
+    remark = db.Column(db.String(100), nullable=True, comment="规则备注（如：步行每公里减排0.09kg CO₂，1kg兑换10积分）")
+    create_time = db.Column(db.DateTime, default=datetime.now, comment="创建时间")
+    update_time = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")

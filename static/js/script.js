@@ -322,7 +322,7 @@ async function fetchPointRecords() {
 
 
 /* ==========================================================
-   积分兑换规则管理（point_roles.html 使用）
+   积分兑换规则管理（point_rules.html 使用）
    ========================================================== */
 
 // 本地缓存的规则列表（从后台获取）
@@ -574,13 +574,12 @@ function filterAccountList() {
 
 
 /* ============================================================
-   用户个人中心（user_profile.html）新增 JS
+   用户个人中心（user_profile.html）
    ============================================================ */
 
 /* ----- 1. 页面初始化 ----- */
 function initUserProfile() {
   fetchUserInfo();
-  fetchUserOrders();
 }
 
 
@@ -623,7 +622,7 @@ function fetchUserInfo() {
     });
 
   // 2. 积分数据（添加错误处理）
-  fetch("/api/user/points")
+  fetch("/user/user_profile/user_points")
     .then(res => {
       if (!res.ok) throw new Error(`积分请求失败：${res.status}`);
       return res.json();
@@ -636,66 +635,132 @@ function fetchUserInfo() {
     .catch(err => {
       console.error("积分数据加载失败：", err);
       document.getElementById("userPoints").innerText = "加载失败";
-      document.getElementById("userTotalEarn").innerText = "0";
-      document.getElementById("userTotalUsed").innerText = "0";
+      document.getElementById("userTotalEarn").innerText = "加载失败";
+      document.getElementById("userTotalUsed").innerText = "加载失败";
     });
 
   // 3. 积分流水（添加错误处理+兼容空数据）
-  fetch("/api/user/points/history")
-    .then(res => {
-      if (!res.ok) throw new Error(`积分流水请求失败：${res.status}`);
-      return res.json();
-    })
-    .then(list => {
-      renderList("pointHistory", list || []);
-    })
-    .catch(err => {
-      console.error("积分流水加载失败：", err);
-      document.getElementById("pointHistory").innerText = "暂无流水数据";
+// 兑换记录（最终版：容错HTML返回）
+fetch("/user/user_profile/user_orders")
+  .then(res => {
+    console.log("兑换记录请求状态：", res.status);
+    if (!res.ok) {
+      throw new Error(`兑换记录请求失败：状态码${res.status}`);
+    }
+    // 先获取文本，判断是否是HTML，再解析JSON
+    return res.text().then(text => {
+      // 如果返回的是HTML（含<），直接返回空数组
+      if (text.includes('<')) {
+        console.warn("兑换记录接口返回HTML，按空数据处理");
+        return [];
+      }
+      // 是JSON则解析
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        console.error("兑换记录JSON解析失败：", e);
+        return [];
+      }
     });
+  })
+  .then(list => {
+    console.log("兑换记录数据：", list);
+    renderList("orderHistory", list, "暂无兑换记录");
+  })
+  .catch(err => {
+    console.error("兑换记录catch块错误：", err);
+    // 仅非404错误弹窗（避免路径错干扰）
+    if (!err.message.includes("404")) {
+      alert("兑换记录查询失败，请稍后重试！");
+    }
+    renderList("orderHistory", [], "暂无兑换记录");
+  });
 
-  // 4. 兑换记录（添加错误处理+兼容空数据）
-  fetch("/api/user/orders")
-    .then(res => {
-      if (!res.ok) throw new Error(`兑换记录请求失败：${res.status}`);
-      return res.json();
-    })
-    .then(list => {
-      renderList("orderHistory", list || []);
-    })
-    .catch(err => {
-      console.error("兑换记录加载失败：", err);
-      document.getElementById("orderHistory").innerText = "暂无兑换记录";
+// 积分流水也加同样的HTML容错（复制上面的逻辑，改路径和domId即可）
+fetch("/user/user_profile/user_history")
+  .then(res => {
+    console.log("积分流水请求状态：", res.status);
+    if (!res.ok) {
+      throw new Error(`积分流水请求失败：状态码${res.status}`);
+    }
+    return res.text().then(text => {
+      if (text.includes('<')) {
+        console.warn("积分流水接口返回HTML，按空数据处理");
+        return [];
+      }
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        console.error("积分流水JSON解析失败：", e);
+        return [];
+      }
     });
+  })
+  .then(list => {
+    console.log("积分流水数据：", list);
+    renderList("pointHistory", list, "暂无流水数据");
+  })
+  .catch(err => {
+    console.error("积分流水catch块错误：", err);
+    if (!err.message.includes("404")) {
+      alert("积分流水查询失败，请稍后重试！");
+    }
+    renderList("pointHistory", [], "暂无流水数据");
+  });
 }
 
 // 补全缺失的 renderList 函数（否则流水/订单会报错）
-function renderList(domId, list) {
+function renderList(domId, list, emptyText = "暂无数据") {
   const box = document.getElementById(domId);
+  // 防御：DOM元素不存在时不报错
+  if (!box) {
+    console.warn(`未找到ID为${domId}的DOM元素`);
+    return;
+  }
   box.innerHTML = "";
 
-  // 空数据处理
+  // 空数据处理：支持自定义文案（区分流水/兑换）
   if (!Array.isArray(list) || list.length === 0) {
-    box.innerHTML = `<div style="padding: 20px; text-align: center; color: #999;">暂无数据</div>`;
+    box.innerHTML = `<div style="padding: 20px; text-align: center; color: #999;">${emptyText}</div>`;
     return;
   }
 
-  // 渲染列表（适配常见字段，可根据实际返回调整）
+  // 渲染列表（根据DOM ID自动适配流水/兑换的字段）
   list.forEach(item => {
     const row = document.createElement("div");
     row.className = "list-row";
     row.style = "padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;";
+
+    // 区分积分流水和兑换记录的字段渲染
+    let title, time, value;
+    if (domId === "pointHistory") {
+      // 积分流水：适配后端返回的字段
+      title = item.reason || "未知变动"; // 变动原因（出行/兑换商品等）
+      time = item.create_time || "";    // 变动时间
+      value = `${item.points > 0 ? '+' : ''}${item.points || 0}`; // 变动积分（+号区分获得/扣除）
+      // 积分正负加颜色（可选，体验更好）
+      value = `<span style="color: ${item.points > 0 ? 'green' : 'red'}">${value}</span>`;
+    } else if (domId === "orderHistory") {
+      // 兑换记录：适配后端返回的字段
+      title = item.goods_name || "未知商品"; // 兑换商品名称
+      time = item.exchange_time || "";       // 兑换时间
+      value = `- ${item.use_points || 0}`;   // 消耗积分（固定减号）
+      value = `<span style="color: red">${value}</span>`;
+    } else {
+      // 通用兜底（兼容其他列表）
+      title = item.title || item.description || "未知记录";
+      time = item.time || item.create_time || "";
+      value = item.value || item.points || 0;
+    }
+
     row.innerHTML = `
-      <div>${item.title || item.description || "未知记录"}</div>
-      <div>${item.time || item.create_time || ""}</div>
-      <div>${item.value || item.points || 0}</div>
+      <div>${title}</div>
+      <div>${time}</div>
+      <div>${value}</div>
     `;
     box.appendChild(row);
   });
 }
-
-
-
 
 /* ----- 3. 更新个人资料 ----- */
 // 全局变量：防止重复提交的锁
@@ -810,48 +875,6 @@ function saveUserProfile() {
     saveBtn.disabled = false;
   });
 }
-
-
-/* ----- 4. 拉取最近兑换订单（积分商城） ----- */
-function fetchUserOrders() {
-  fetch("/api/user/orders")
-    .then(res => res.json())
-    .then(data => {
-      const list = document.getElementById("orderList");
-      list.innerHTML = "";
-
-      if (!data || data.length === 0) {
-        list.innerHTML = `<p class="empty-text">暂无兑换记录</p>`;
-        return;
-      }
-
-      data.forEach(order => {
-        const item = document.createElement("div");
-        item.className = "order-item hover-lift";
-
-        item.innerHTML = `
-          <div class="order-info">
-            <h3>${order.product_name}</h3>
-            <p>消耗积分：<b>${order.cost_points}</b></p>
-            <p>订单时间：${order.created_at}</p>
-          </div>
-          <span class="pill ${order.status}">
-            ${order.status === "done" ? "已完成" :
-              order.status === "pending" ? "处理中" :
-              "已取消"}
-          </span>
-        `;
-
-        list.appendChild(item);
-      });
-    })
-    .catch(err => {
-      console.error("用户订单加载失败", err);
-      alert("加载兑换记录失败");
-    });
-}
-
-
 /* ----- 5. 修改密码（可选） ----- */
 function changePassword() {
   const oldPwd = document.getElementById("oldPassword").value;
@@ -881,31 +904,6 @@ function changePassword() {
       console.error("修改密码失败", err);
       alert("修改密码时发生错误");
     });
-}
-
-// 用来获取订单列表并显示
-function fetchOrders() {
-  // 假设有一个接口可以获取待处理的订单
-  fetch('/api/get-orders') 
-    .then(response => response.json())
-    .then(data => {
-      const orderListContainer = document.getElementById('orderList');
-      orderListContainer.innerHTML = ''; // 清空现有内容
-      data.orders.forEach(order => {
-        const orderElement = document.createElement('div');
-        orderElement.className = 'order-card';
-        orderElement.innerHTML = `
-          <div class="order-summary">
-            <p><strong>用户ID：</strong>${order.userId}</p>
-            <p><strong>商品：</strong>${order.productName}</p>
-            <p><strong>订单地址：</strong>${order.address}</p>
-          </div>
-          <button class="btn" onclick="viewOrderDetails(${order.id})">查看详情</button>
-        `;
-        orderListContainer.appendChild(orderElement);
-      });
-    })
-    .catch(error => console.error('Error fetching orders:', error));
 }
 
 // 查看订单详情
