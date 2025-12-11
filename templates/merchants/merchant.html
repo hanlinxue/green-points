@@ -10,7 +10,7 @@
   <div class="dashboard">
     <nav class="dash-nav">
       <div class="brand">商户中心</div>
-      <a href="#" class="active">商品管理</a>
+      <a href="{{ url_for('merchant.merchant_product') }}">商品管理</a>
       <a href="{{ url_for('merchant.merchant_order') }}">订单处理</a>
       <a href="{{ url_for('merchant.merchant_withdraw') }}">积分提现</a>
       <a href="{{ url_for('merchant.merchant_out') }}">退出登录</a>
@@ -19,8 +19,9 @@
     <div class="dash-main">
       <div class="dash-header">
         <div>
-          <h1>商品管理</h1>
-          <p>上架绿色商品，设置积分兑换规则，获取更多曝光。</p>
+          <h1>商品管理 - 旧版本 (merchant.html)</h1>
+          <p>⚠️ 您访问的是旧版本页面！请点击下方链接跳转到新版本：</p>
+          <p><a href="/merchant/merchant_product" style="color: #007bff; text-decoration: underline; font-weight: bold;">👉 点击这里进入新版本商品管理页面</a></p>
         </div>
         <button class="btn-outline" onclick="fetchMerchantProducts()">刷新</button>
       </div>
@@ -75,6 +76,6 @@
     </div>
   </div>
 
-  <script src="../../static/js/script.js"></script>
+  <script src="../../static/js/script.js?v=2.0"></script>
 </body>
 </html>

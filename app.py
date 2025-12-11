@@ -43,7 +43,7 @@ def is_redis_running():
 def start_redis_windows():
     """自动启动Redis"""
     if is_redis_running():
-        print("[Redis] 已运行 ✅")
+        print("[Redis] 已运行")
         return True
     try:
         startupinfo = subprocess.STARTUPINFO()
@@ -82,7 +82,7 @@ def is_consumer_running():
 def start_consumer_windows():
     """启动消费者（无日志文件依赖，通过Redis订阅者检测是否启动）"""
     if is_consumer_running():
-        print("[消费者] 启动成功 ✅")
+        print("[消费者] 启动成功")
         return True
     try:
         print("[消费者] 启动中...")
@@ -104,7 +104,7 @@ def start_consumer_windows():
 
         # 第一步：检测进程（原有逻辑）
         if is_consumer_running():
-            print("[消费者] 启动成功 ✅")
+            print("[消费者] 启动成功")
             return True
         # 第二步：通过Redis检测订阅者（替代日志文件）
         else:
@@ -116,17 +116,18 @@ def start_consumer_windows():
                 # pubsub_num返回格式：[(b'trip_points_events', 订阅者数量), ...]
                 subscriber_count = pubsub_num[0][1] if pubsub_num else 0
                 if subscriber_count > 0:
-                    print("[消费者] 进程检测失败，但Redis检测到订阅者 ✅（忽略即可）")
+                    print("[消费者] 进程检测失败，但Redis检测到订阅者（忽略即可）")
                     return True
             except Exception as e:
                 print(f"[Redis检测订阅者异常] {e}")
 
         # 所有检测都失败
-        print("[消费者] 启动失败 ❌，请手动启动消费者脚本")
+        print("[消费者] 启动失败，请手动启动消费者脚本")
         return False
     except Exception as e:
         print(f"[消费者启动异常] {e}")
         return False
+
 
 # ====================== 启动Flask ======================
 if __name__ == '__main__':

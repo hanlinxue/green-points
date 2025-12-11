@@ -40,7 +40,7 @@ def is_redis_running():
 def start_redis_for_consumer():
     """消费者启动前自动启动Redis"""
     if is_redis_running():
-        print(f"[{datetime.now()}] [消费者] Redis已运行 ✅", flush=True)
+        print(f"[{datetime.now()}] [消费者] Redis已运行 ", flush=True)
         return True
     try:
         print(f"[{datetime.now()}] [消费者] 启动Redis...", flush=True)
@@ -51,10 +51,10 @@ def start_redis_for_consumer():
                          shell=True)
         time.sleep(3)
         if is_redis_running():
-            print(f"[{datetime.now()}] [消费者] Redis启动成功 ✅", flush=True)
+            print(f"[{datetime.now()}] [消费者] Redis启动成功 ", flush=True)
             return True
         else:
-            print(f"[{datetime.now()}] [消费者] Redis启动失败 ❌，请手动启动！", flush=True)
+            print(f"[{datetime.now()}] [消费者] Redis启动失败 ，请手动启动！", flush=True)
             return False
     except Exception as e:
         print(f"[{datetime.now()}] [消费者] Redis启动异常：{e}", flush=True)
@@ -65,15 +65,15 @@ def start_redis_for_consumer():
 try:
     from apps import create_app
     from exts import db
-    from apps.users.models import User
+    from apps.users.models import User, PointsFlow
     from apps.administrators.models import PointRule
 
     # 创建app并初始化上下文（关键！执行init_exts）
     app = create_app()
     app.app_context().push()
-    print(f"[{datetime.now()}] [消费者] Flask上下文加载成功 ✅", flush=True)
+    print(f"[{datetime.now()}] [消费者] Flask上下文加载成功 ", flush=True)
 except Exception as e:
-    print(f"[{datetime.now()}] [消费者] 上下文加载失败 ❌：{e}", flush=True)
+    print(f"[{datetime.now()}] [消费者] 上下文加载失败 ：{e}", flush=True)
     sys.exit(1)
 
 
@@ -89,9 +89,9 @@ def consume_trip_points():
     try:
         redis_conn = redis.Redis(**REDIS_CONFIG)
         redis_conn.ping()
-        print(f"[{datetime.now()}] [消费者] Redis连接成功 ✅", flush=True)
+        print(f"[{datetime.now()}] [消费者] Redis连接成功 ", flush=True)
     except Exception as e:
-        print(f"[{datetime.now()}] [消费者] Redis连接失败 ❌：{e}", flush=True)
+        print(f"[{datetime.now()}] [消费者] Redis连接失败 ：{e}", flush=True)
         sys.exit(1)
 
     # 订阅频道
@@ -134,7 +134,7 @@ def consume_trip_points():
                 # ========== 更新用户积分 ==========
                 user = User.query.filter_by(username=username).first()
                 if not user:
-                    print(f"[{datetime.now()}] [消费者] 用户{username}不存在 ❌", flush=True)
+                    print(f"[{datetime.now()}] [消费者] 用户{username}不存在 ", flush=True)
                     continue
 
                 # 验证初始值
@@ -148,7 +148,21 @@ def consume_trip_points():
                 # 验证更新后的值
                 print(f"[{datetime.now()}] [消费者] 更新后 → now={user.now_points}，all={user.all_points}", flush=True)
 
-                # 提交事务（无需add，查询的对象已在会话中）
+                # ========== 创建积分流水记录 ==========
+                points_flow = PointsFlow(
+                    username=username,
+                    change_type="获得",
+                    reason="出行",
+                    points=add_points,
+                    balance=user.now_points,
+                    # 出行场景的字段
+                    goods_id=None,
+                    goods_name=None,
+                    exchange_status=None
+                )
+                db.session.add(points_flow)
+
+                # 提交事务
                 db.session.commit()
                 print(
                     f"[{datetime.now()}] [消费者] 积分发放成功！{username}：now={old_points}→{user.now_points}（+{add_points}），all={user.all_points - add_points}→{user.all_points}（+{add_points}）",
@@ -157,7 +171,7 @@ def consume_trip_points():
     except KeyboardInterrupt:
         print(f"\n[{datetime.now()}] [消费者] 手动停止", flush=True)
     except Exception as e:
-        print(f"[{datetime.now()}] [消费者] 处理异常 ❌：{e}", flush=True)
+        print(f"[{datetime.now()}] [消费者] 处理异常 ：{e}", flush=True)
         db.session.rollback()
     finally:
         pubsub.unsubscribe(CHANNEL_NAME)

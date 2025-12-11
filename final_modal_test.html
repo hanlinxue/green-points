@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>最终模态框测试</title>
+  <link rel="stylesheet" href="static/css/products.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      min-height: 100vh;
+      background: #f0f8ff;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    .btn {
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px;
+    }
+    .btn:hover {
+      background: #218838;
+    }
+    .status {
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      font-weight: bold;
+    }
+    .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+    h1 { color: #2ecc71; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎯 最终模态框测试</h1>
+
+    <div id="status" class="status warning">
+      正在检测模态框初始状态...
+    </div>
+
+    <p>这个测试页面验证模态框是否能正确工作：</p>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <button class="btn" onclick="showModal()">
+        🎪 显示兑换模态框
+      </button>
+      <button class="btn" onclick="checkStatus()">
+        🔍 检查当前状态
+      </button>
+    </div>
+
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <h3>✅ 修复内容总结：</h3>
+      <ul>
+        <li>移除了所有强制的CSS样式</li>
+        <li>使用简单的CSS类控制显示/隐藏</li>
+        <li>默认状态：display: none（隐藏）</li>
+        <li>显示时：添加.show类，应用flex布局居中</li>
+        <li>关闭时：移除.show类</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 兑换确认模态框 -->
+  <div id="exchangeModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>确认兑换</h3>
+        <span class="close" onclick="closeModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <p>✨ 模态框正常显示！</p>
+        <div class="quantity-selector">
+          <label for="testQuantity">测试数量：</label>
+          <div class="quantity-controls">
+            <button type="button" class="btn-quantity" onclick="decreaseQty()">-</button>
+            <input type="number" id="testQuantity" value="1" min="1" max="10" readonly>
+            <button type="button" class="btn-quantity" onclick="increaseQty()">+</button>
+          </div>
+        </div>
+        <div class="alert-warning">
+          <i class="bi bi-exclamation-triangle"></i>
+          这是测试模态框，所有功能应该正常工作！
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal()">关闭</button>
+        <button class="btn-primary" onclick="confirmModal()">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showModal() {
+      document.getElementById('exchangeModal').classList.add('show');
+      document.getElementById('status').textContent = '✅ 模态框已显示 - 请测试关闭功能';
+      document.getElementById('status').className = 'status success';
+    }
+
+    function closeModal() {
+      document.getElementById('exchangeModal').classList.remove('show');
+      document.getElementById('status').textContent = '✅ 模态框已关闭 - 修复成功！';
+      document.getElementById('status').className = 'status success';
+    }
+
+    function confirmModal() {
+      alert('测试完成！模态框功能正常。');
+      closeModal();
+    }
+
+    function decreaseQty() {
+      const input = document.getElementById('testQuantity');
+      if (input.value > 1) {
+        input.value = parseInt(input.value) - 1;
+      }
+    }
+
+    function increaseQty() {
+      const input = document.getElementById('testQuantity');
+      if (input.value < 10) {
+        input.value = parseInt(input.value) + 1;
+      }
+    }
+
+    function checkStatus() {
+      const modal = document.getElementById('exchangeModal');
+      const isVisible = modal.classList.contains('show');
+      const display = window.getComputedStyle(modal).display;
+
+      document.getElementById('status').innerHTML =
+        `当前状态: ${isVisible ? '显示' : '隐藏'} | CSS display: ${display}`;
+      document.getElementById('status').className =
+        isVisible ? 'status success' : 'status warning';
+    }
+
+    // 页面加载时检查初始状态
+    window.onload = function() {
+      setTimeout(checkStatus, 100);
+    };
+
+    // 点击背景关闭
+    window.onclick = function(event) {
+      const modal = document.getElementById('exchangeModal');
+      if (event.target === modal) {
+        closeModal();
+      }
+    };
+  </script>
+</body>
+</html>

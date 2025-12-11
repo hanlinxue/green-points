@@ -47,7 +47,7 @@ async function login() {
   else localStorage.removeItem("remember_id");
   const role = res.data.role || "user";
   if (role === "user") window.location.href = "/user/user_index";
-  else if (role === "merchant") window.location.href = "/merchant/merchant_index";
+  else if (role === "merchant") window.location.href = "/merchant/merchant_product";
   else if (role === "admin") window.location.href = "/admin/admin_index";
 }
 

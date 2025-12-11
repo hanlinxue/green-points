@@ -150,6 +150,294 @@ function goAddressPage() {
   window.location.href = "/user/user_address";
 }
 
+    // 页面初始化
+    async function initUserProfile() {
+      await fetchUserInfo();
+      await fetchUserPoints();
+      await fetchPointsHistory();
+      await fetchExchangeOrders();
+    }
+
+    // 获取用户信息
+    async function fetchUserInfo() {
+      try {
+        const response = await fetch('/user/user_info');
+        if (response.ok) {
+          const data = await response.json();
+          document.getElementById('profileNickname').value = data.nickname || '';
+          document.getElementById('profileAccount').value = data.username || '';
+          document.getElementById('profilePassword').value = data.password || '';
+          document.getElementById('profilePhone').value = data.phone || '';
+          document.getElementById('profileEmail').value = data.email || '';
+        }
+      } catch (error) {
+        console.error('获取用户信息失败:', error);
+      }
+    }
+
+    // 获取用户积分
+    async function fetchUserPoints() {
+      try {
+        const response = await fetch('/user/user_profile/user_points');
+        if (response.ok) {
+          const data = await response.json();
+          document.getElementById('userPoints').textContent = data.points || 0;
+          document.getElementById('userTotalEarn').textContent = data.earned || 0;
+          document.getElementById('userTotalUsed').textContent = data.used || 0;
+        }
+      } catch (error) {
+        console.error('获取积分失败:', error);
+      }
+    }
+
+    // 获取积分流水
+    async function fetchPointsHistory() {
+      try {
+        const response = await fetch('/user/user_profile/user_history');
+        if (response.ok) {
+          const historyData = await response.json();
+          displayPointsHistory(historyData);
+        }
+      } catch (error) {
+        console.error('获取积分流水失败:', error);
+      }
+    }
+
+    // 显示积分流水
+    function displayPointsHistory(historyData) {
+      const container = document.getElementById('pointHistory');
+
+      if (!historyData || historyData.length === 0) {
+        container.innerHTML = '<p class="text-muted">暂无积分流水记录</p>';
+        return;
+      }
+
+      let html = '<div class="points-history-list">';
+
+      historyData.forEach(item => {
+        const changeTypeClass = item.change_type === '获得' ? 'success' : 'danger';
+        const changeTypeIcon = item.change_type === '获得' ? '↑' : '↓';
+        const pointsSign = item.change_type === '获得' ? '+' : '';
+
+        html += `
+          <div class="points-flow-item">
+            <div class="flow-header">
+              <span class="flow-type flow-type-${changeTypeClass}">
+                ${changeTypeIcon} ${item.change_type}
+              </span>
+              <span class="flow-time">${item.create_time}</span>
+            </div>
+            <div class="flow-content">
+              <div class="flow-reason">${item.reason}</div>
+              <div class="flow-points flow-points-${changeTypeClass}">
+                ${pointsSign}${item.points} 积分
+              </div>
+            </div>
+            <div class="flow-footer">
+              <span class="flow-balance">余额: ${item.balance} 积分</span>
+              ${item.goods_name ? `<span class="flow-goods">${item.goods_name}</span>` : ''}
+            </div>
+          </div>
+        `;
+      });
+
+      html += '</div>';
+
+      // 添加样式
+      html += `
+        <style>
+        .points-history-list {
+          max-height: 400px;
+          overflow-y: auto;
+        }
+
+        .points-flow-item {
+          border: 1px solid #e9ecef;
+          border-radius: 8px;
+          padding: 1rem;
+          margin-bottom: 0.75rem;
+          background-color: #f8f9fa;
+        }
+
+        .flow-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 0.5rem;
+        }
+
+        .flow-type {
+          font-weight: bold;
+          font-size: 0.875rem;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+        }
+
+        .flow-type-success {
+          background-color: #d4edda;
+          color: #155724;
+        }
+
+        .flow-type-danger {
+          background-color: #f8d7da;
+          color: #721c24;
+        }
+
+        .flow-time {
+          font-size: 0.875rem;
+          color: #6c757d;
+        }
+
+        .flow-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 0.5rem;
+        }
+
+        .flow-reason {
+          font-weight: 500;
+          color: #495057;
+        }
+
+        .flow-points {
+          font-weight: bold;
+          font-size: 1rem;
+        }
+
+        .flow-points-success {
+          color: #28a745;
+        }
+
+        .flow-points-danger {
+          color: #dc3545;
+        }
+
+        .flow-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 0.875rem;
+          color: #6c757d;
+        }
+
+        .flow-balance {
+          font-weight: 500;
+        }
+
+        .flow-goods {
+          color: #007bff;
+        }
+
+        .text-muted {
+          color: #6c757d;
+          text-align: center;
+          padding: 2rem;
+        }
+        </style>
+      `;
+
+      container.innerHTML = html;
+    }
+
+    // 获取兑换记录
+    async function fetchExchangeOrders() {
+      try {
+        const response = await fetch('/user/user_profile/user_orders');
+        if (response.ok) {
+          const orderData = await response.json();
+          displayExchangeOrders(orderData);
+        }
+      } catch (error) {
+        console.error('获取兑换记录失败:', error);
+      }
+    }
+
+    // 显示兑换记录
+    function displayExchangeOrders(orderData) {
+      const container = document.getElementById('orderHistory');
+
+      if (!orderData || orderData.length === 0) {
+        container.innerHTML = '<p class="text-muted">暂无兑换记录</p>';
+        return;
+      }
+
+      let html = '<div class="exchange-orders-list">';
+
+      orderData.forEach(order => {
+        html += `
+          <div class="order-item">
+            <div class="order-header">
+              <span class="order-goods">${order.goods_name}</span>
+              <span class="order-status">${order.status}</span>
+            </div>
+            <div class="order-content">
+              <div class="order-points">消耗积分: ${order.use_points}</div>
+              <div class="order-time">${order.exchange_time}</div>
+            </div>
+          </div>
+        `;
+      });
+
+      html += '</div>';
+
+      // 添加样式
+      html += `
+        <style>
+        .exchange-orders-list {
+          max-height: 400px;
+          overflow-y: auto;
+        }
+
+        .order-item {
+          border: 1px solid #e9ecef;
+          border-radius: 8px;
+          padding: 1rem;
+          margin-bottom: 0.75rem;
+          background-color: #f8f9fa;
+        }
+
+        .order-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 0.5rem;
+        }
+
+        .order-goods {
+          font-weight: 600;
+          color: #333;
+        }
+
+        .order-status {
+          font-size: 0.875rem;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          background-color: #28a745;
+          color: white;
+        }
+
+        .order-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 0.875rem;
+          color: #6c757d;
+        }
+
+        .order-points {
+          font-weight: 500;
+        }
+
+        .order-time {
+          font-size: 0.875rem;
+        }
+        </style>
+      `;
+
+      container.innerHTML = html;
+    }
+
 </script>
 
 </body>

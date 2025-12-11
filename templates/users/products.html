@@ -5,12 +5,16 @@
   <meta charset="utf-8">
   <title>积分商城 - 绿色出行</title>
   <link rel="stylesheet" href="../../static/css/style.css">
+  <link rel="stylesheet" href="../../static/css/products.css">
 </head>
 <body onload="initProductsPage()">
   <div class="dashboard">
     <nav class="dash-nav">
       <div class="brand">绿色出行商城</div>
       <a href="#" class="active">全部商品</a>
+      <div class="nav-item">
+        <span>当前积分: <strong id="currentPoints">0</strong></span>
+      </div>
       <a href="{{ url_for('user.user_trip') }}">提交出行</a>
       <a href="{{ url_for('user.user_profile') }}">个人中心</a>
       <a href="{{ url_for('user.user_out') }}">退出登录</a>
@@ -22,7 +26,17 @@
           <h1>积分兑换商城</h1>
           <p>精选绿色合作商户，积分扣减后生成订单并同步通知商户。</p>
         </div>
-        <button class="btn-outline" onclick="fetchProducts()">刷新列表</button>
+        <div class="header-actions">
+          <select id="categoryFilter" class="form-select" onchange="filterProducts()">
+            <option value="">所有分类</option>
+            <option value="日用品">日用品</option>
+            <option value="文创">文创</option>
+            <option value="数码">数码</option>
+          </select>
+          <button class="btn-outline" onclick="fetchProducts()">
+            <i class="bi bi-arrow-clockwise"></i> 刷新列表
+          </button>
+        </div>
       </div>
 
       <div class="panel hover-lift">
@@ -30,11 +44,326 @@
           <h2>绿色精选商品</h2>
           <span class="pill">积分实时扣减</span>
         </div>
-        <div id="productList" class="product-grid"></div>
+
+        <!-- 加载提示 -->
+        <div id="loadingSpinner" class="text-center py-5">
+          <div class="spinner"></div>
+          <p>正在加载商品...</p>
+        </div>
+
+        <!-- 商品列表 -->
+        <div id="productList" class="product-grid" style="display: none;"></div>
+
+        <!-- 空状态提示 -->
+        <div id="emptyState" class="text-center py-5" style="display: none;">
+          <i class="bi bi-box-seam" style="font-size: 3rem; color: #999;"></i>
+          <h3 class="mt-3">暂无商品</h3>
+          <p>目前没有可兑换的商品，请稍后再试</p>
+        </div>
       </div>
     </section>
   </div>
 
+  <!-- 兑换确认模态框 -->
+  <div id="exchangeModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>确认兑换</h3>
+        <span class="close" onclick="closeExchangeModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <p>您确定要兑换以下商品吗？</p>
+        <div id="selectedProductInfo" class="product-info">
+          <!-- 商品信息将动态填充 -->
+        </div>
+        <div class="quantity-selector">
+          <label for="exchangeQuantity">兑换数量：</label>
+          <div class="quantity-controls">
+            <button type="button" id="decreaseQty" class="btn-quantity">-</button>
+            <input type="number" id="exchangeQuantity" value="1" min="1" max="1" readonly>
+            <button type="button" id="increaseQty" class="btn-quantity">+</button>
+          </div>
+          <span class="max-quantity">（库存：<span id="stockQuantity">0</span>）</span>
+        </div>
+        <div class="alert-warning">
+          <i class="bi bi-exclamation-triangle"></i>
+          兑换将消耗 <strong id="exchangePoints">0</strong> 积分
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeExchangeModal()">取消</button>
+        <button class="btn-primary" id="confirmExchangeBtn">确认兑换</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提示信息 -->
+  <div id="toast" class="toast" style="display: none;"></div>
+
   <script src="../../static/js/script.js"></script>
+  <script>
+    let products = [];
+    let userPoints = 0;
+
+    // 页面初始化
+    async function initProductsPage() {
+      await fetchUserPoints();
+      await fetchProducts();
+    }
+
+    // 获取用户积分
+    async function fetchUserPoints() {
+      try {
+        const response = await fetch('/user/user_profile/user_points');
+        if (response.ok) {
+          const data = await response.json();
+          userPoints = data.points || 0;
+          document.getElementById('currentPoints').textContent = userPoints;
+        }
+      } catch (error) {
+        console.error('获取积分失败:', error);
+      }
+    }
+
+    // 获取商品列表
+    async function fetchProducts() {
+      const loadingSpinner = document.getElementById('loadingSpinner');
+      const productList = document.getElementById('productList');
+      const emptyState = document.getElementById('emptyState');
+
+      // 显示加载提示
+      loadingSpinner.style.display = 'block';
+      productList.style.display = 'none';
+      emptyState.style.display = 'none';
+
+      try {
+        const response = await fetch('/user/products');
+        if (response.ok) {
+          products = await response.json();
+          loadingSpinner.style.display = 'none';
+
+          if (products.length > 0) {
+            displayProducts(products);
+            productList.style.display = 'grid';
+          } else {
+            emptyState.style.display = 'block';
+          }
+        } else {
+          throw new Error('获取商品列表失败');
+        }
+      } catch (error) {
+        console.error('获取商品失败:', error);
+        loadingSpinner.style.display = 'none';
+        showToast('获取商品列表失败，请稍后重试', 'error');
+        emptyState.style.display = 'block';
+      }
+    }
+
+    // 显示商品列表
+    function displayProducts(productsToDisplay) {
+      const productList = document.getElementById('productList');
+      productList.innerHTML = '';
+
+      productsToDisplay.forEach(product => {
+        const productCard = document.createElement('div');
+        productCard.className = 'product-card';
+        productCard.innerHTML = `
+          <div class="product-image">
+            <img src="${product.img_url || '/static/img/default_product.png'}"
+                 alt="${product.goods_name}"
+                 onerror="this.src='/static/img/default_product.png'">
+            ${product.stock <= 0 ? '<span class="sold-out-badge">售罄</span>' : ''}
+          </div>
+          <div class="product-info">
+            <h3 class="product-name">${product.goods_name}</h3>
+            <p class="product-category">${product.category}</p>
+            <p class="product-desc">${product.description}</p>
+            <div class="product-footer">
+              <div class="product-points">
+                <i class="bi bi-gift-fill"></i>
+                <span>${product.need_points} 积分</span>
+              </div>
+              <div class="product-stock">
+                库存: ${product.stock}
+              </div>
+            </div>
+            <button class="btn-exchange"
+                    onclick="showExchangeModal(${product.id})"
+                    ${product.stock <= 0 || userPoints < product.need_points ? 'disabled' : ''}>
+              ${product.stock <= 0 ? '已售罄' :
+                userPoints < product.need_points ? '积分不足' : '立即兑换'}
+            </button>
+          </div>
+        `;
+        productList.appendChild(productCard);
+      });
+    }
+
+    // 筛选商品
+    function filterProducts() {
+      const category = document.getElementById('categoryFilter').value;
+      let filteredProducts = products;
+
+      if (category) {
+        filteredProducts = products.filter(p => p.category === category);
+      }
+
+      displayProducts(filteredProducts);
+    }
+
+    // 显示兑换确认模态框
+    function showExchangeModal(productId) {
+      const product = products.find(p => p.id === productId);
+      if (!product) return;
+
+      const modal = document.getElementById('exchangeModal');
+      const productInfo = document.getElementById('selectedProductInfo');
+      const exchangePoints = document.getElementById('exchangePoints');
+      const exchangeQuantity = document.getElementById('exchangeQuantity');
+      const stockQuantity = document.getElementById('stockQuantity');
+      const decreaseBtn = document.getElementById('decreaseQty');
+      const increaseBtn = document.getElementById('increaseQty');
+
+      // 设置商品信息
+      productInfo.innerHTML = `
+        <div class="modal-product">
+          <img src="${product.img_url || '/static/img/default_product.png'}"
+               alt="${product.goods_name}">
+          <div class="modal-product-details">
+            <h4>${product.goods_name}</h4>
+            <p class="text-muted">${product.description}</p>
+            <p>分类: ${product.category}</p>
+            <p>库存: ${product.stock}</p>
+          </div>
+        </div>
+      `;
+
+      // 设置库存和初始数量
+      stockQuantity.textContent = product.stock;
+      exchangeQuantity.value = 1;
+      exchangeQuantity.max = product.stock;
+
+      // 计算并显示总积分
+      updateTotalPoints(product.need_points, 1);
+
+      // 绑定数量增减按钮事件
+      decreaseBtn.onclick = () => {
+        let currentQty = parseInt(exchangeQuantity.value);
+        if (currentQty > 1) {
+          currentQty--;
+          exchangeQuantity.value = currentQty;
+          updateTotalPoints(product.need_points, currentQty);
+          updateQuantityButtons(currentQty, product.stock, product.need_points);
+        }
+      };
+
+      increaseBtn.onclick = () => {
+        let currentQty = parseInt(exchangeQuantity.value);
+        const maxQty = Math.min(product.stock, Math.floor(userPoints / product.need_points));
+        if (currentQty < maxQty) {
+          currentQty++;
+          exchangeQuantity.value = currentQty;
+          updateTotalPoints(product.need_points, currentQty);
+          updateQuantityButtons(currentQty, product.stock, product.need_points);
+        }
+      };
+
+      // 初始化按钮状态
+      updateQuantityButtons(1, product.stock, product.need_points);
+
+      // 绑定确认按钮事件
+      document.getElementById('confirmExchangeBtn').onclick = () => exchangeProduct(productId);
+
+      modal.style.display = 'block';
+    }
+
+    // 更新总积分显示
+    function updateTotalPoints(pointsPerItem, quantity) {
+      const totalPoints = pointsPerItem * quantity;
+      document.getElementById('exchangePoints').textContent = totalPoints;
+    }
+
+    // 更新数量按钮状态
+    function updateQuantityButtons(currentQty, stock, pointsPerItem) {
+      const decreaseBtn = document.getElementById('decreaseQty');
+      const increaseBtn = document.getElementById('increaseQty');
+      const exchangeQuantity = document.getElementById('exchangeQuantity');
+
+      const maxQty = Math.min(stock, Math.floor(userPoints / pointsPerItem));
+
+      // 更新按钮状态
+      decreaseBtn.disabled = currentQty <= 1;
+      increaseBtn.disabled = currentQty >= maxQty || currentQty >= stock;
+    }
+
+    // 关闭兑换模态框
+    function closeExchangeModal() {
+      document.getElementById('exchangeModal').style.display = 'none';
+    }
+
+    // 兑换商品
+    async function exchangeProduct(productId) {
+      const product = products.find(p => p.id === productId);
+      if (!product) return;
+
+      const exchangeQuantity = parseInt(document.getElementById('exchangeQuantity').value);
+      const totalPointsNeeded = product.need_points * exchangeQuantity;
+
+      // 验证数量
+      if (exchangeQuantity < 1) {
+        showToast('请选择正确的兑换数量', 'error');
+        return;
+      }
+
+      if (exchangeQuantity > product.stock) {
+        showToast('兑换数量超过库存数量', 'error');
+        return;
+      }
+
+      if (userPoints < totalPointsNeeded) {
+        showToast('积分不足，无法兑换', 'error');
+        return;
+      }
+
+      if (product.stock <= 0) {
+        showToast('商品库存不足', 'error');
+        return;
+      }
+
+      try {
+        // TODO: 实现兑换接口调用
+        console.log(`兑换商品: ${product.goods_name}, 数量: ${exchangeQuantity}, 总积分: ${totalPointsNeeded}`);
+        showToast(`成功兑换 ${exchangeQuantity} 件商品，消耗 ${totalPointsNeeded} 积分`, 'success');
+        closeExchangeModal();
+
+        // 刷新用户积分和商品列表
+        await fetchUserPoints();
+        await fetchProducts();
+      } catch (error) {
+        console.error('兑换失败:', error);
+        showToast('兑换失败，请稍后重试', 'error');
+      }
+    }
+
+    // 显示提示信息
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      toast.className = `toast toast-${type}`;
+      toast.textContent = message;
+      toast.style.display = 'block';
+
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 3000);
+    }
+
+    // 点击模态框外部关闭
+    window.onclick = function(event) {
+      const modal = document.getElementById('exchangeModal');
+      if (event.target === modal) {
+        closeExchangeModal();
+      }
+    }
+  </script>
 </body>
 </html>

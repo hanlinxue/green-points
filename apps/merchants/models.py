@@ -14,7 +14,9 @@ class Merchant(db.Model):
     isdelete = db.Column(db.Boolean, default=False)
     iscancel = db.Column(db.Boolean, default=False)
     rdatetime = db.Column(db.DateTime, default=datetime.now)
-
+    now_points = db.Column(db.Integer, default=0)  # 当前积分
+    all_points = db.Column(db.Integer, default=0)  # 累积获得积分
+    use_points = db.Column(db.Integer, default=0)  # 累积兑换积分
 
 class GoodsStatusEnum(Enum):
     ON_SHELF = "on_shelf"  # 上架（可兑换）
@@ -27,6 +29,7 @@ class Goods(db.Model):
     __tablename__ = "tb_goods"
     # 核心主键
     id = db.Column(db.Integer, primary_key=True, autoincrement=True, comment="商品ID（主键）")
+    merchant_username = db.Column(db.String(30), db.ForeignKey("tb_merchant.username"), nullable=False, comment="商户ID")
     # 商品基础信息
     goods_name = db.Column(db.String(100), nullable=False, comment="商品名称（如：环保水杯、帆布包）")
     description = db.Column(db.Text, nullable=True, comment="商品详细描述（可选）")
@@ -49,9 +52,9 @@ class Order(db.Model):
     __tablename__ = "tb_order"  # 指定表名
     id = db.Column(db.Integer, primary_key=True, autoincrement=True, comment="订单主键ID")
     order_no = db.Column(db.String(32), unique=True, nullable=False, comment="订单编号")
-    user_id = db.Column(db.Integer, db.ForeignKey("tb_user.id"), nullable=False, comment="用户ID")
+    user_username = db.Column(db.String(30), db.ForeignKey("tb_user.username"), nullable=False, comment="用户ID")
     goods_id = db.Column(db.Integer, db.ForeignKey("tb_goods.id"), nullable=False, comment="商品ID")
-    merchant_id = db.Column(db.Integer, db.ForeignKey("tb_merchant.id"), nullable=False, comment="商户ID")
+    merchant_username = db.Column(db.String(30), db.ForeignKey("tb_merchant.username"), nullable=False, comment="商户ID")
     address_id = db.Column(db.Integer, db.ForeignKey("tb_address.id"), default=None, comment="收货地址ID")
     point_amount = db.Column(db.Float(10, 2), nullable=False, default=0.00, comment="消耗积分数量")
     order_status = db.Column(db.SmallInteger, nullable=False, default=0, comment="订单状态：0-创建中 1-已扣积分 2-商户已接单 3-已发货 4-完成 5-取消 6-售后中")

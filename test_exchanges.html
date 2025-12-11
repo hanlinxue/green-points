@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>测试积分兑换功能</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+    .success { color: green; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h1>积分兑换功能修改测试</h1>
+
+  <div class="test-section">
+    <h2>✅ 已完成的修改</h2>
+    <ul>
+      <li class="success">✓ 查看了当前兑换模态框的样式和位置</li>
+      <li class="success">✓ 确认模态框已经居中显示（使用 flexbox 布局）</li>
+      <li class="success">✓ 在兑换模态框中添加了数量选择功能</li>
+      <li class="success">✓ 添加了数量增减按钮和库存显示</li>
+      <li class="success">✓ 更新了JavaScript逻辑以支持数量选择</li>
+      <li class="success">✓ 实现了总积分动态计算</li>
+      <li class="success">✓ 添加了数量限制验证（库存和积分限制）</li>
+      <li class="success">✓ 优化了按钮状态（禁用不可用的按钮）</li>
+      <li class="success">✓ 添加了移动端响应式支持</li>
+    </ul>
+  </div>
+
+  <div class="test-section">
+    <h2>🔧 主要功能修改</h2>
+    <h3>1. 数量选择器</h3>
+    <ul>
+      <li>添加了加减按钮来选择兑换数量</li>
+      <li>显示当前库存数量</li>
+      <li>根据库存和用户积分限制最大可选数量</li>
+    </ul>
+
+    <h3>2. 智能限制</h3>
+    <ul>
+      <li>不能选择超过库存的数量</li>
+      <li>不能选择超过用户积分能承受的数量</li>
+      <li>最少选择1件商品</li>
+    </ul>
+
+    <h3>3. 积分计算</h3>
+    <ul>
+      <li>实时显示总积分消耗（单价 × 数量）</li>
+      <li>兑换时验证积分是否充足</li>
+    </ul>
+
+    <h3>4. 用户体验优化</h3>
+    <ul>
+      <li>按钮状态智能更新</li>
+      <li>数量为1时禁用减少按钮</li>
+      <li>达到限制时禁用增加按钮</li>
+      <li>清晰的错误提示信息</li>
+    </ul>
+  </div>
+
+  <div class="test-section">
+    <h2>📱 响应式设计</h2>
+    <ul>
+      <li>在移动端，数量选择器变为垂直布局</li>
+      <li>模态框在小屏幕上自动调整宽度</li>
+      <li>保持良好的用户体验</li>
+    </ul>
+  </div>
+
+  <div class="test-section">
+    <h2>⚠️ 注意事项</h2>
+    <ul>
+      <li class="error">实际的兑换API接口尚未实现（目前显示"兑换功能开发中"）</li>
+      <li>当前仅模拟成功提示，需要后端API支持实际兑换功能</li>
+      <li>需要连接真实的数据库来更新积分和库存</li>
+    </ul>
+  </div>
+
+  <div class="test-section">
+    <h2>🎯 使用方法</h2>
+    <ol>
+      <li>在 products.html 页面点击任意商品的"立即兑换"按钮</li>
+      <li>在弹出的模态框中可以看到数量选择器</li>
+      <li>使用 + 和 - 按钮调整兑换数量</li>
+      <li>查看底部显示的总积分消耗</li>
+      <li>点击"确认兑换"完成兑换（当前为模拟）</li>
+    </ol>
+  </div>
+</body>
+</html>

@@ -4,7 +4,8 @@
 <head>
   <meta charset="utf-8">
   <title>商户中心 - GreenPoints</title>
-  <link rel="stylesheet" href="../static/css/style.css">
+  <link rel="stylesheet" href="../../static/css/style.css?v=1.1">
+  <link rel="stylesheet" href="../../static/css/merchant-products.css?v=1.1">
 </head>
 <body onload="initMerchantDashboard()">
   <div class="dashboard">
@@ -20,9 +21,24 @@
       <div class="dash-header">
         <div>
           <h1>商品管理</h1>
-          <p>上架绿色商品，设置积分兑换规则，获取更多曝光。</p>
         </div>
-        <button class="btn-outline" onclick="fetchMerchantProducts()">刷新</button>
+        <div class="header-actions">
+          <select id="statusFilter" class="form-select" onchange="filterProducts()">
+            <option value="">所有状态</option>
+            <option value="on_shelf">上架中</option>
+            <option value="off_shelf">已下架</option>
+            <option value="sold_out">已售罄</option>
+          </select>
+          <button class="btn" onclick="showAddProductModal()">
+            <i class="bi bi-plus-circle"></i> 上架商品
+          </button>
+          <button class="btn" onclick="fetchMerchantProducts()">
+            <i class="bi bi-arrow-clockwise"></i> 刷新
+          </button>
+          <button class="btn" onclick="checkStockStatus()">
+            <i class="bi bi-check-circle"></i> 检查库存
+          </button>
+        </div>
       </div>
 
       <div class="stat-grid">
@@ -45,22 +61,542 @@
 
       <div class="panel hover-lift">
         <div class="panel-header">
-          <h2>商品管理</h2>
-          <span class="pill">选择上架商品</span>
-        </div>
-        <div id="merchantProductList" class="product-grid"></div>
-        <button class="btn" onclick="updateProductStatus()">更新商品状态</button>
-      </div>
-
-      <div class="panel hover-lift">
-        <div class="panel-header">
           <h2>我的商品</h2>
+          <span class="pill" id="productCount">共0件商品</span>
         </div>
-        <div id="merchantProductList" class="product-grid"></div>
+
+        <!-- 加载提示 -->
+        <div id="loadingSpinner" class="text-center py-5">
+          <div class="spinner"></div>
+          <p>正在加载商品...</p>
+        </div>
+
+        <!-- 商品列表 -->
+        <div id="merchantProductList" class="merchant-product-grid" style="display: none;"></div>
+
+        <!-- 空状态提示 -->
+        <div id="emptyState" class="text-center py-5" style="display: none;">
+          <i class="bi bi-box-seam" style="font-size: 3rem; color: #999;"></i>
+          <h3 class="mt-3">暂无商品</h3>
+          <p>还没有上架任何商品，点击上方"上架商品"按钮开始吧</p>
+        </div>
       </div>
     </div>
   </div>
 
-  <script src="../static/js/script.js"></script>
+  <!-- 上架商品模态框 -->
+  <div id="addProductModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>上架新商品</h3>
+        <span class="close" onclick="closeAddProductModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <form id="addProductForm">
+          <div class="form-row">
+            <label for="goodsName">商品名称 *</label>
+            <input type="text" id="goodsName" name="goods_name" class="input" required>
+          </div>
+
+          <div class="form-row">
+            <label for="category">商品分类</label>
+            <select id="category" name="category" class="form-select">
+              <option value="日用品">日用品</option>
+              <option value="文创">文创</option>
+              <option value="数码">数码</option>
+              <option value="食品">食品</option>
+              <option value="通用">通用</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label for="needPoints">所需积分 *</label>
+            <input type="number" id="needPoints" name="need_points" class="input" min="1" step="0.01" required>
+          </div>
+
+          <div class="form-row">
+            <label for="stock">库存数量 *</label>
+            <input type="number" id="stock" name="stock" class="input" min="0" required>
+          </div>
+
+          <div class="form-row">
+            <label for="stockWarning">库存预警</label>
+            <input type="number" id="stockWarning" name="stock_warning" class="input" min="0" value="10">
+          </div>
+
+          <div class="form-row">
+            <label for="description">商品描述</label>
+            <textarea id="description" name="description" class="input" rows="3" placeholder="请描述商品的特点、材质、用途等信息..."></textarea>
+          </div>
+
+          <div class="form-row">
+            <label for="imgUrl">商品图片URL</label>
+            <input type="url" id="imgUrl" name="img_url" class="input" placeholder="https://example.com/image.jpg">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeAddProductModal()">取消</button>
+        <button class="btn-primary" onclick="submitAddProduct()">确认上架</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑商品模态框 -->
+  <div id="editProductModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>编辑商品</h3>
+        <span class="close" onclick="closeEditProductModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <form id="editProductForm">
+          <input type="hidden" id="editProductId" name="id">
+
+          <div class="form-row">
+            <label for="editGoodsName">商品名称 *</label>
+            <input type="text" id="editGoodsName" name="goods_name" class="input" required>
+          </div>
+
+          <div class="form-row">
+            <label for="editCategory">商品分类</label>
+            <select id="editCategory" name="category" class="form-select">
+              <option value="日用品">日用品</option>
+              <option value="文创">文创</option>
+              <option value="数码">数码</option>
+              <option value="食品">食品</option>
+              <option value="通用">通用</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label for="editNeedPoints">所需积分 *</label>
+            <input type="number" id="editNeedPoints" name="need_points" class="input" min="1" step="0.01" required>
+          </div>
+
+          <div class="form-row">
+            <label for="editStock">库存数量 *</label>
+            <input type="number" id="editStock" name="stock" class="input" min="0" required>
+          </div>
+
+          <div class="form-row">
+            <label for="editStockWarning">库存预警</label>
+            <input type="number" id="editStockWarning" name="stock_warning" class="input" min="0">
+          </div>
+
+          <div class="form-row">
+            <label for="editDescription">商品描述</label>
+            <textarea id="editDescription" name="description" class="input" rows="3"></textarea>
+          </div>
+
+          <div class="form-row">
+            <label for="editImgUrl">商品图片URL</label>
+            <input type="url" id="editImgUrl" name="img_url" class="input">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeEditProductModal()">取消</button>
+        <button class="btn-primary" onclick="submitEditProduct()">保存修改</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提示信息 -->
+  <div id="toast" class="toast" style="display: none;"></div>
+
+  <script src="../static/js/script.js?v=2.0"></script>
+  <script>
+    console.log("Merchant Products v2.0 template loaded successfully!");
+
+    // Override any existing functions from script.js
+    let merchantProducts = [];
+    let filteredProducts = [];
+
+    // 页面初始化
+    async function initMerchantDashboard() {
+      await fetchMerchantStats();
+      await fetchMerchantProducts();
+    }
+
+    // 获取商户统计信息
+    async function fetchMerchantStats() {
+      try {
+        const response = await fetch('/merchant/merchant_stats');
+        if (response.ok) {
+          const data = await response.json();
+          document.getElementById('merchantMetricPoints').textContent = data.points || 0;
+          document.getElementById('merchantMetricProducts').textContent = data.products || 0;
+          document.getElementById('merchantMetricOrders').textContent = data.orders || 0;
+        }
+      } catch (error) {
+        console.error('获取商户统计失败:', error);
+      }
+    }
+
+    // 获取商品列表
+    async function fetchMerchantProducts() {
+      const loadingSpinner = document.getElementById('loadingSpinner');
+      const productList = document.getElementById('merchantProductList');
+      const emptyState = document.getElementById('emptyState');
+
+      loadingSpinner.style.display = 'block';
+      productList.style.display = 'none';
+      emptyState.style.display = 'none';
+
+      try {
+        const response = await fetch('/merchant/merchant_products');
+        if (response.ok) {
+          merchantProducts = await response.json();
+          filteredProducts = [...merchantProducts];
+
+          loadingSpinner.style.display = 'none';
+
+          if (filteredProducts.length > 0) {
+            displayProducts(filteredProducts);
+            productList.style.display = 'grid';
+          } else {
+            emptyState.style.display = 'block';
+          }
+
+          updateProductCount();
+        } else {
+          throw new Error('获取商品列表失败');
+        }
+      } catch (error) {
+        console.error('获取商品失败:', error);
+        loadingSpinner.style.display = 'none';
+        showToast('获取商品列表失败，请稍后重试', 'error');
+        emptyState.style.display = 'block';
+      }
+    }
+
+    // 显示商品列表
+    function displayProducts(productsToDisplay) {
+      const productList = document.getElementById('merchantProductList');
+      productList.innerHTML = '';
+
+      productsToDisplay.forEach(product => {
+        const productCard = document.createElement('div');
+        productCard.className = 'merchant-product-card';
+
+        const statusClass = getProductStatusClass(product.status);
+        const statusText = getProductStatusText(product.status);
+        const stockWarning = product.stock <= product.stock_warning && product.stock > 0;
+
+        productCard.innerHTML = `
+          <div class="product-image">
+            <img src="${product.img_url || '/static/img/default_product.png'}"
+                 alt="${product.goods_name}"
+                 onerror="this.src='/static/img/default_product.png'">
+            <span class="product-status ${statusClass}">${statusText}</span>
+            ${stockWarning ? '<span class="stock-warning-badge">库存预警</span>' : ''}
+          </div>
+          <div class="product-info">
+            <h3 class="product-name">${product.goods_name}</h3>
+            <p class="product-category">${product.category}</p>
+            <p class="product-desc">${product.description || '暂无描述'}</p>
+            <div class="product-footer">
+              <div class="product-points">
+                <i class="bi bi-gift-fill"></i>
+                <span>${product.need_points} 积分</span>
+              </div>
+              <div class="product-stock ${stockWarning ? 'low-stock' : ''}">
+                库存: ${product.stock}
+              </div>
+            </div>
+            <div class="product-meta">
+              <span>创建时间: ${formatDateTime(product.create_time)}</span>
+            </div>
+            <div class="product-actions">
+              <button class="btn-sm btn-outline" onclick="editProduct(${product.id})">
+                <i class="bi bi-pencil"></i> 编辑
+              </button>
+              <button class="btn-sm ${product.status === 'on_shelf' ? 'btn-warning' : 'btn-success'}"
+                      onclick="toggleProductStatus(${product.id}, '${product.status}')">
+                <i class="bi bi-${product.status === 'on_shelf' ? 'dash' : 'check'}"></i>
+                ${product.status === 'on_shelf' ? '下架' : '上架'}
+              </button>
+              <button class="btn-sm btn-danger" onclick="deleteProduct(${product.id})">
+                <i class="bi bi-trash"></i> 删除
+              </button>
+            </div>
+          </div>
+        `;
+        productList.appendChild(productCard);
+      });
+    }
+
+    // 筛选商品
+    function filterProducts() {
+      const status = document.getElementById('statusFilter').value;
+
+      if (status === '') {
+        filteredProducts = [...merchantProducts];
+      } else {
+        filteredProducts = merchantProducts.filter(p => p.status === status);
+      }
+
+      displayProducts(filteredProducts);
+      updateProductCount();
+    }
+
+    // 更新商品数量显示
+    function updateProductCount() {
+      document.getElementById('productCount').textContent = `共${filteredProducts.length}件商品`;
+    }
+
+    // 显示上架商品模态框
+    function showAddProductModal() {
+      document.getElementById('addProductModal').style.display = 'block';
+      document.getElementById('addProductForm').reset();
+    }
+
+    // 关闭上架商品模态框
+    function closeAddProductModal() {
+      document.getElementById('addProductModal').style.display = 'none';
+    }
+
+    // 提交上架商品
+    async function submitAddProduct() {
+      const form = document.getElementById('addProductForm');
+      const formData = new FormData(form);
+
+      const productData = {
+        goods_name: formData.get('goods_name'),
+        category: formData.get('category'),
+        need_points: parseFloat(formData.get('need_points')),
+        stock: parseInt(formData.get('stock')),
+        stock_warning: parseInt(formData.get('stock_warning')),
+        description: formData.get('description'),
+        img_url: formData.get('img_url')
+      };
+
+      try {
+        const response = await fetch('/merchant/merchant_products', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(productData)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showToast('商品上架成功！', 'success');
+          closeAddProductModal();
+          await fetchMerchantProducts();
+          await fetchMerchantStats();
+        } else {
+          showToast(result.error || '上架失败', 'error');
+        }
+      } catch (error) {
+        console.error('上架商品失败:', error);
+        showToast('上架失败，请稍后重试', 'error');
+      }
+    }
+
+    // 编辑商品
+    function editProduct(productId) {
+      const product = merchantProducts.find(p => p.id === productId);
+      if (!product) return;
+
+      // 填充表单
+      document.getElementById('editProductId').value = product.id;
+      document.getElementById('editGoodsName').value = product.goods_name;
+      document.getElementById('editCategory').value = product.category;
+      document.getElementById('editNeedPoints').value = product.need_points;
+      document.getElementById('editStock').value = product.stock;
+      document.getElementById('editStockWarning').value = product.stock_warning;
+      document.getElementById('editDescription').value = product.description || '';
+      document.getElementById('editImgUrl').value = product.img_url || '';
+
+      // 显示模态框
+      document.getElementById('editProductModal').style.display = 'block';
+    }
+
+    // 关闭编辑商品模态框
+    function closeEditProductModal() {
+      document.getElementById('editProductModal').style.display = 'none';
+    }
+
+    // 提交编辑商品
+    async function submitEditProduct() {
+      const productId = document.getElementById('editProductId').value;
+      const form = document.getElementById('editProductForm');
+      const formData = new FormData(form);
+
+      const productData = {
+        goods_name: formData.get('goods_name'),
+        category: formData.get('category'),
+        need_points: parseFloat(formData.get('need_points')),
+        stock: parseInt(formData.get('stock')),
+        stock_warning: parseInt(formData.get('stock_warning')),
+        description: formData.get('description'),
+        img_url: formData.get('img_url')
+      };
+
+      try {
+        const response = await fetch(`/merchant/merchant_products/${productId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(productData)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showToast('商品信息更新成功！', 'success');
+          closeEditProductModal();
+          await fetchMerchantProducts();
+        } else {
+          showToast(result.error || '更新失败', 'error');
+        }
+      } catch (error) {
+        console.error('更新商品失败:', error);
+        showToast('更新失败，请稍后重试', 'error');
+      }
+    }
+
+    // 切换商品状态（上架/下架）
+    async function toggleProductStatus(productId, currentStatus) {
+      const newStatus = currentStatus === 'on_shelf' ? 'off_shelf' : 'on_shelf';
+      const actionText = newStatus === 'on_shelf' ? '上架' : '下架';
+
+      if (!confirm(`确定要${actionText}这个商品吗？`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/merchant/merchant_products/${productId}/status`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: newStatus })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showToast(`商品${actionText}成功！`, 'success');
+          await fetchMerchantProducts();
+          await fetchMerchantStats();
+        } else {
+          showToast(result.error || `${actionText}失败`, 'error');
+        }
+      } catch (error) {
+        console.error(`${actionText}商品失败:`, error);
+        showToast(`${actionText}失败，请稍后重试`, 'error');
+      }
+    }
+
+    // 删除商品
+    async function deleteProduct(productId) {
+      if (!confirm('⚠️ 警告：此操作将永久删除该商品，无法恢复！\n\n确定要删除这个商品吗？')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/merchant/merchant_products/${productId}`, {
+          method: 'DELETE'
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showToast('商品删除成功！', 'success');
+          await fetchMerchantProducts();
+          await fetchMerchantStats();
+        } else {
+          showToast(result.error || '删除失败', 'error');
+        }
+      } catch (error) {
+        console.error('删除商品失败:', error);
+        showToast('删除失败，请稍后重试', 'error');
+      }
+    }
+
+    // 辅助函数
+    function getProductStatusClass(status) {
+      const statusClasses = {
+        'on_shelf': 'status-on-shelf',
+        'off_shelf': 'status-off-shelf',
+        'sold_out': 'status-sold-out'
+      };
+      return statusClasses[status] || '';
+    }
+
+    function getProductStatusText(status) {
+      const statusTexts = {
+        'on_shelf': '上架中',
+        'off_shelf': '已下架',
+        'sold_out': '已售罄'
+      };
+      return statusTexts[status] || status;
+    }
+
+    function formatDateTime(dateTimeStr) {
+      if (!dateTimeStr) return '';
+      const date = new Date(dateTimeStr);
+      return date.toLocaleString('zh-CN');
+    }
+
+    // 显示提示信息
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      toast.className = `toast toast-${type}`;
+      toast.textContent = message;
+      toast.style.display = 'block';
+
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 3000);
+    }
+
+    // 检查库存状态
+    async function checkStockStatus() {
+      try {
+        showToast('正在检查库存状态...', 'info');
+
+        const response = await fetch('/merchant/check_stock_status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showToast(`检查完成！${result.message}`, 'success');
+          // 刷新商品列表以显示最新的状态
+          await fetchMerchantProducts();
+          await fetchMerchantStats();
+        } else {
+          showToast(result.error || '库存检查失败', 'error');
+        }
+      } catch (error) {
+        console.error('检查库存状态失败:', error);
+        showToast('库存检查失败，请稍后重试', 'error');
+      }
+    }
+
+    // 点击模态框外部关闭
+    window.onclick = function(event) {
+      const addModal = document.getElementById('addProductModal');
+      const editModal = document.getElementById('editProductModal');
+
+      if (event.target === addModal) {
+        closeAddProductModal();
+      }
+      if (event.target === editModal) {
+        closeEditProductModal();
+      }
+    }
+  </script>
 </body>
 </html>

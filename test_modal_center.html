@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>模态框居中测试</title>
+  <link rel="stylesheet" href="static/css/style.css">
+  <link rel="stylesheet" href="static/css/products.css">
+  <style>
+    body {
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .test-content {
+      height: 2000px; /* 制造滚动条测试 */
+      background: linear-gradient(to bottom, #f0f0f0, #fff);
+      padding: 20px;
+    }
+    .test-button {
+      background: #28a745;
+      color: white;
+      padding: 15px 30px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 20px;
+    }
+    .test-button:hover {
+      background: #218838;
+    }
+    .instruction {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border-left: 4px solid #28a745;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-content">
+    <h1>🎯 模态框居中测试页面</h1>
+
+    <div class="instruction">
+      <h3>📋 测试说明：</h3>
+      <ol>
+        <li>点击下面的"测试兑换模态框"按钮</li>
+        <li>模态框应该在屏幕正中央显示，而不是左上角</li>
+        <li>尝试滚动页面，模态框应该保持在屏幕中央</li>
+        <li>点击背景或关闭按钮关闭模态框</li>
+      </ol>
+    </div>
+
+    <button class="test-button" onclick="showTestModal()">
+      🔄 测试兑换模态框
+    </button>
+
+    <div style="height: 500px; border: 2px dashed #ccc; margin: 20px 0; display: flex; align-items: center; justify-content: center;">
+      <p style="font-size: 18px; color: #666;">测试内容区域（用于滚动）</p>
+    </div>
+
+    <div style="height: 500px; border: 2px dashed #ccc; margin: 20px 0; display: flex; align-items: center; justify-content: center;">
+      <p style="font-size: 18px; color: #666;">更多测试内容</p>
+    </div>
+
+    <div style="height: 500px; border: 2px dashed #ccc; margin: 20px 0; display: flex; align-items: center; justify-content: center;">
+      <p style="font-size: 18px; color: #666;">底部测试内容</p>
+    </div>
+  </div>
+
+  <!-- 模拟兑换模态框 -->
+  <div id="exchangeModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>确认兑换</h3>
+        <span class="close" onclick="closeTestModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <p>您确定要兑换以下商品吗？</p>
+        <div class="product-info">
+          <div class="modal-product">
+            <img src="https://via.placeholder.com/100x100" alt="测试商品">
+            <div class="modal-product-details">
+              <h4>测试商品名称</h4>
+              <p class="text-muted">这是测试商品描述</p>
+              <p>分类: 测试分类</p>
+              <p>库存: 100</p>
+            </div>
+          </div>
+        </div>
+        <div class="quantity-selector">
+          <label for="exchangeQuantity">兑换数量：</label>
+          <div class="quantity-controls">
+            <button type="button" id="decreaseQty" class="btn-quantity">-</button>
+            <input type="number" id="exchangeQuantity" value="1" min="1" max="100" readonly>
+            <button type="button" id="increaseQty" class="btn-quantity">+</button>
+          </div>
+          <span class="max-quantity">（库存：<span id="stockQuantity">100</span>）</span>
+        </div>
+        <div class="alert-warning">
+          <i class="bi bi-exclamation-triangle"></i>
+          兑换将消耗 <strong id="exchangePoints">50</strong> 积分
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeTestModal()">取消</button>
+        <button class="btn-primary" onclick="confirmTestModal()">确认兑换</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showTestModal() {
+      document.getElementById('exchangeModal').style.display = 'flex';
+      initTestModalControls();
+    }
+
+    function closeTestModal() {
+      document.getElementById('exchangeModal').style.display = 'none';
+    }
+
+    function confirmTestModal() {
+      alert('这是测试页面，兑换功能已测试成功！');
+      closeTestModal();
+    }
+
+    function initTestModalControls() {
+      const quantity = 1;
+      const stock = 100;
+      const pointsPerItem = 50;
+
+      // 绑定数量控制
+      document.getElementById('decreaseQty').onclick = function() {
+        let currentQty = parseInt(document.getElementById('exchangeQuantity').value);
+        if (currentQty > 1) {
+          currentQty--;
+          document.getElementById('exchangeQuantity').value = currentQty;
+          updateTestTotalPoints(pointsPerItem, currentQty);
+        }
+      };
+
+      document.getElementById('increaseQty').onclick = function() {
+        let currentQty = parseInt(document.getElementById('exchangeQuantity').value);
+        if (currentQty < stock) {
+          currentQty++;
+          document.getElementById('exchangeQuantity').value = currentQty;
+          updateTestTotalPoints(pointsPerItem, currentQty);
+        }
+      };
+    }
+
+    function updateTestTotalPoints(pointsPerItem, quantity) {
+      const totalPoints = pointsPerItem * quantity;
+      document.getElementById('exchangePoints').textContent = totalPoints;
+    }
+
+    // 点击模态框外部关闭
+    window.onclick = function(event) {
+      const modal = document.getElementById('exchangeModal');
+      if (event.target === modal) {
+        closeTestModal();
+      }
+    }
+  </script>
+</body>
+</html>

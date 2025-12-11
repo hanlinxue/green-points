@@ -172,6 +172,39 @@ def user_index():
     return render_template('users/products.html')
 
 
+# 获取商品列表API
+@user_bp.route('/products', methods=['GET'])
+def get_products():
+    try:
+        # 查询所有上架的商品
+        goods_list = Goods.query.filter_by(status='on_shelf').order_by(Goods.create_time.desc()).all()
+
+        # 格式化返回数据
+        result = []
+        for goods in goods_list:
+            # 处理图片URL，如果没有则使用默认图片
+            img_url = goods.img_url if goods.img_url else '/static/img/default_product.png'
+
+            result.append({
+                "id": goods.id,
+                "goods_name": goods.goods_name,
+                "description": goods.description,
+                "category": goods.category,
+                "need_points": goods.need_points,
+                "stock": goods.stock,
+                "stock_warning": goods.stock_warning,
+                "img_url": img_url,
+                "status": goods.status,
+                "create_time": goods.create_time.strftime("%Y-%m-%d %H:%M:%S") if goods.create_time else ""
+            })
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        print(f"查询商品列表失败：{str(e)}")
+        return jsonify({"error": "获取商品列表失败，请稍后重试！"}), 500
+
+# %%个人中心
 # 个人中心
 @user_bp.route('/user_profile', methods=['GET', 'POST'])
 def user_profile():
@@ -181,16 +214,17 @@ def user_profile():
     return render_template('users/user_profile.html')
 
 
-# %%个人中心
+
 # 个人资料展示
 @user_bp.route('/user_info', methods=['GET', 'POST'])
 def user_info():
     username = session.get("username")
+    print(f"[DEBUG] Session username: {username}")
     if not username:
         return jsonify({"error": "未登录"}), 401
 
     user = User.query.filter_by(username=username).first()
-    print(user)
+    print(f"[DEBUG] Found user: {user}")
     if not user:
         return jsonify({"error": "用户不存在"}), 404
     return jsonify({
@@ -715,6 +749,8 @@ def submit_user_trip():
         db.session.rollback()
         print(f"提交出行记录失败：{str(e)}")
         return jsonify({"success": False, "message": "服务器错误，提交失败！"}), 500
+
+
 
 
 # 退出登录
