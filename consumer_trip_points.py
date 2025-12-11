@@ -124,22 +124,34 @@ def consume_trip_points():
 
                 carbon_reduction = distance * rule.carbon_reduction_coeff
                 add_points = int(round(carbon_reduction * rule.point_exchange_coeff, 0))
+                print("1")
+                print(add_points)
                 if add_points <= 0:
                     print(f"[{datetime.now()}] [消费者] 积分≤0：{add_points}", flush=True)
                     continue
 
                 # ========== 更新用户积分 ==========
+                # ========== 更新用户积分 ==========
                 user = User.query.filter_by(username=username).first()
                 if not user:
-                    print(f"[{datetime.now()}] [消费者] 用户{username}不存在", flush=True)
+                    print(f"[{datetime.now()}] [消费者] 用户{username}不存在 ❌", flush=True)
                     continue
 
+                # 验证初始值
+                print(f"[{datetime.now()}] [消费者] 更新前 → now={user.now_points}，all={user.all_points}", flush=True)
+
                 old_points = user.now_points
-                user.now_points += add_points
-                user.all_points += add_points
+                # 显式更新，避免 += 隐性问题
+                user.now_points = user.now_points + add_points
+                user.all_points = user.all_points + add_points
+
+                # 验证更新后的值
+                print(f"[{datetime.now()}] [消费者] 更新后 → now={user.now_points}，all={user.all_points}", flush=True)
+
+                # 提交事务（无需add，查询的对象已在会话中）
                 db.session.commit()
                 print(
-                    f"[{datetime.now()}] [消费者] 积分发放成功！{username}：{old_points} → {user.now_points}（+{add_points}）",
+                    f"[{datetime.now()}] [消费者] 积分发放成功！{username}：now={old_points}→{user.now_points}（+{add_points}），all={user.all_points - add_points}→{user.all_points}（+{add_points}）",
                     flush=True)
 
     except KeyboardInterrupt:
