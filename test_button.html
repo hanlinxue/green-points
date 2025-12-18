@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>按钮测试</title>
+  <link rel="stylesheet" href="static/css/style.css">
+  <link rel="stylesheet" href="static/css/common.css">
+</head>
+<body>
+  <div style="padding: 20px;">
+    <h1>按钮测试页面</h1>
+
+    <div class="panel hover-lift" style="margin: 20px 0;">
+      <div class="panel-header">
+        <h2>测试按钮</h2>
+      </div>
+
+      <div style="padding: 20px;">
+        <button class="btn" onclick="alert('btn clicked!')">btn按钮</button>
+
+        <button class="btn-outline" onclick="alert('btn-outline clicked!')">btn-outline按钮</button>
+
+        <button class="btn-outline" data-action="test1" data-order-id="123">data属性按钮1</button>
+
+        <button class="btn-outline" data-action="test2" data-order-id="456">data属性按钮2</button>
+
+        <br><br>
+
+        <div id="output"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 显示所有点击事件
+    document.addEventListener('click', function(e) {
+      const button = e.target.tagName === 'BUTTON' ? e.target : e.target.closest('button');
+      if (button) {
+        document.getElementById('output').innerHTML = `点击了按钮: ${button.textContent}<br>数据: ${JSON.stringify(button.dataset)}`;
+
+        const action = button.dataset.action;
+        const orderId = button.dataset.orderId;
+
+        if (action && orderId) {
+          console.log('执行动作:', action, orderId);
+        }
+      }
+    });
+
+    console.log('页面加载完成');
+  </script>
+</body>
+</html>

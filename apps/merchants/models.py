@@ -69,3 +69,24 @@ class Order(db.Model):
     cancel_reason = db.Column(db.String(100), default=None, comment="取消原因")
     remark = db.Column(db.String(200), default=None, comment="订单备注")
     is_delete = db.Column(db.SmallInteger, nullable=False, default=0, comment="软删除标识")
+
+
+# 提现记录表
+class WithdrawalRecord(db.Model):
+    __tablename__ = "tb_withdrawal_record"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True, comment="提现记录ID")
+    withdrawal_no = db.Column(db.String(32), unique=True, nullable=False, comment="提现单号")
+    merchant_username = db.Column(db.String(30), db.ForeignKey("tb_merchant.username"), nullable=False, comment="商户ID")
+    points_amount = db.Column(db.Integer, nullable=False, comment="提现积分数量")
+    cash_amount = db.Column(db.Numeric(10, 2), nullable=False, comment="提现金额（人民币）")
+    exchange_rate = db.Column(db.Numeric(10, 2), nullable=False, comment="提现时使用的汇率")
+    status = db.Column(db.SmallInteger, nullable=False, default=0, comment="提现状态：0-待审核 1-审核通过 2-审核拒绝 3-提现完成 4-提现失败")
+    bank_account = db.Column(db.String(50), nullable=True, comment="银行账号")
+    bank_name = db.Column(db.String(100), nullable=True, comment="银行名称")
+    account_holder = db.Column(db.String(50), nullable=True, comment="账户持有人")
+    remark = db.Column(db.String(200), default=None, comment="备注")
+    admin_remark = db.Column(db.String(200), default=None, comment="管理员备注")
+    create_time = db.Column(db.DateTime, nullable=False, default=datetime.now, comment="申请时间")
+    update_time = db.Column(db.DateTime, nullable=False, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    approve_time = db.Column(db.DateTime, default=None, comment="审核时间")
+    complete_time = db.Column(db.DateTime, default=None, comment="完成时间")

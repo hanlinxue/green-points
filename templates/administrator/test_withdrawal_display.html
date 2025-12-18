@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>测试提现申请显示</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; }
+    .btn { padding: 8px 16px; margin: 0 5px; cursor: pointer; border: none; border-radius: 3px; }
+    .btn.danger { background-color: #ef4444; color: white; }
+    .btn:not(.danger) { background-color: #10b981; color: white; }
+    #withdrawalRequests { max-height: 400px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <h1>管理员测试 - 提现申请</h1>
+
+  <div>
+    <h2>待审核提现申请 <span id="metricWithdrawals">0</span></h2>
+    <div id="withdrawalRequests">
+      <div class="empty-state">加载中...</div>
+    </div>
+  </div>
+
+  <hr>
+
+  <div>
+    <h3>调试信息</h3>
+    <button onclick="testAPI()">测试 API</button>
+    <pre id="debugOutput" style="background: #f5f5f5; padding: 10px; margin-top: 10px;"></pre>
+  </div>
+
+  <script>
+    // 简化的 API fetch 函数
+    async function apiFetch(url, options = {}) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+          },
+          ...options
+        });
+
+        const data = await response.json();
+
+        // 添加 ok 属性
+        data.ok = response.ok;
+        data.status = response.status;
+
+        return data;
+      } catch (error) {
+        console.error('API request failed:', error);
+        return { ok: false, message: error.message };
+      }
+    }
+
+    // 设置文本
+    function setText(id, text) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    }
+
+    // 获取提现申请
+    async function fetchWithdrawalRequests() {
+      const debugOutput = document.getElementById('debugOutput');
+
+      debugOutput.textContent = '正在请求 /admin/api/admin/withdrawals/pending...\n';
+
+      const res = await apiFetch("/admin/api/admin/withdrawals/pending");
+
+      debugOutput.textContent += '响应:\n' + JSON.stringify(res, null, 2) + '\n\n';
+
+      const el = document.getElementById("withdrawalRequests");
+      if (!el) return;
+
+      el.innerHTML = "";
+      const items = (res.ok && Array.isArray(res.data.items)) ? res.data.items : [];
+      setText("metricWithdrawals", items.length);
+
+      debugOutput.textContent += `提现申请数量: ${items.length}\n`;
+
+      if (items.length === 0) {
+        el.innerHTML = "<div class='empty-state'>暂无提现申请</div>";
+        debugOutput.textContent += '没有待审核的提现申请';
+        return;
+      }
+
+      items.forEach(w => {
+        debugOutput.textContent += `处理提现申请: ${JSON.stringify(w, null, 2)}\n\n`;
+
+        const node = document.createElement("div");
+        node.className = "card";
+        node.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <p style="margin:0"><strong>${w.merchantName || w.merchantId}</strong></p>
+              <p style="color:#6b7280;margin-top:6px">提现单号：${w.withdrawal_no}</p>
+              <p style="color:#6b7280;margin-top:4px">${w.points}积分 → ¥${w.amount.toFixed(2)}</p>
+              <p style="color:#6b7280;margin-top:4px">${w.createTime}</p>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="btn" onclick="adminDecideWithdrawal('${w.id}', true)">批准</button>
+              <button class="btn danger" onclick="adminDecideWithdrawal('${w.id}', false)">拒绝</button>
+            </div>
+          </div>
+        `;
+        el.appendChild(node);
+      });
+    }
+
+    // 处理提现申请
+    async function adminDecideWithdrawal(id, approve) {
+      if (!confirm(approve ? "批准提现？" : "拒绝提现？")) return;
+
+      const debugOutput = document.getElementById('debugOutput');
+      debugOutput.textContent += `\n处理提现申请 ID: ${id}, 批准: ${approve}\n`;
+
+      const res = await apiFetch(`/admin/api/admin/withdrawals/${id}/decide`, {
+        method: "POST",
+        body: JSON.stringify({ approve })
+      });
+
+      debugOutput.textContent += '处理响应:\n' + JSON.stringify(res, null, 2) + '\n\n';
+
+      alert(res.data?.message || (res.ok ? "操作成功" : "操作失败"));
+      if (res.ok) fetchWithdrawalRequests();
+    }
+
+    // 测试 API
+    async function testAPI() {
+      const debugOutput = document.getElementById('debugOutput');
+      debugOutput.textContent = '测试 API...\n\n';
+
+      // 测试两个 API 端点
+      const urls = [
+        '/admin/api/admin/withdrawals/pending',
+        '/admin/api/withdrawals/pending'
+      ];
+
+      for (const url of urls) {
+        debugOutput.textContent += `测试: ${url}\n`;
+        try {
+          const res = await apiFetch(url);
+          debugOutput.textContent += `结果: ${JSON.stringify(res, null, 2)}\n\n`;
+        } catch (e) {
+          debugOutput.textContent += `错误: ${e.message}\n\n`;
+        }
+      }
+    }
+
+    // 页面加载后自动获取提现申请
+    window.onload = () => {
+      fetchWithdrawalRequests();
+    };
+  </script>
+</body>
+</html>

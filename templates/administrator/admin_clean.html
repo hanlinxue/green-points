@@ -1,0 +1,56 @@
+<!-- 管理员主页面 -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理员控制台</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="dashboard">
+    <nav class="dash-nav">
+      <div class="brand">绿色出行管理平台</div>
+      <a href="/admin/admin_index" class="active">控制台</a>
+      <a href="/admin/admin_users">账户管理</a>
+      <a href="/admin/point_rules">积分规则</a>
+      <a href="/user/index">退出登录</a>
+    </nav>
+
+    <div class="dash-main">
+      <div class="dash-header">
+        <h1>管理员控制台</h1>
+        <p>系统管理与审核中心</p>
+      </div>
+
+      <div class="panel hover-lift">
+        <div class="panel-header">
+          <h2>系统功能</h2>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+          <a href="/admin/admin_users" class="btn btn-primary" style="text-decoration: none; text-align: center;">
+            <div style="padding: 20px;">
+              <h3>用户管理</h3>
+              <p>管理用户账户和权限</p>
+            </div>
+          </a>
+          <a href="/admin/point_rules" class="btn btn-primary" style="text-decoration: none; text-align: center;">
+            <div style="padding: 20px;">
+              <h3>积分规则</h3>
+              <p>设置积分兑换规则</p>
+            </div>
+          </a>
+          <a href="/admin/admin_simple" class="btn btn-info" style="text-decoration: none; text-align: center;">
+            <div style="padding: 20px;">
+              <h3>API测试</h3>
+              <p>测试系统API接口</p>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/script_minimal.js"></script>
+</body>
+</html>

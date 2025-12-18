@@ -757,3 +757,53 @@ def submit_user_trip():
 @user_bp.route('/user_out', methods=['GET', 'POST'])
 def user_out():
     return render_template('login/index.html')
+
+
+# API: 获取当前登录用户信息
+@user_bp.route('/api/current_user', methods=['GET'])
+def get_current_user():
+    """获取当前登录用户的信息"""
+    try:
+        # 检查管理员
+        adminname = session.get("adminname")
+        if adminname:
+            from apps.administrators.models import Administrator
+            admin = Administrator.query.filter_by(adminname=adminname).first()
+            if admin:
+                return jsonify({
+                    "role": "admin",
+                    "roleText": "系统管理员",
+                    "id": admin.adminname,
+                    "name": admin.adminname
+                })
+
+        # 检查商户
+        merchantname = session.get("merchantname")
+        if merchantname:
+            from apps.merchants.models import Merchant
+            merchant = Merchant.query.filter_by(username=merchantname).first()
+            if merchant:
+                return jsonify({
+                    "role": "merchant",
+                    "roleText": "商户",
+                    "id": merchant.username,
+                    "name": merchant.username
+                })
+
+        # 检查用户
+        username = session.get("username")
+        if username:
+            user = User.query.filter_by(username=username).first()
+            if user:
+                return jsonify({
+                    "role": "user",
+                    "roleText": "用户",
+                    "id": user.username,
+                    "name": user.nickname or user.username
+                })
+
+        return jsonify({"error": "未登录"}), 401
+
+    except Exception as e:
+        print(f"获取用户信息失败：{str(e)}")
+        return jsonify({"error": "获取用户信息失败"}), 500

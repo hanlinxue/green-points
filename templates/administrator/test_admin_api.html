@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>管理员API测试</title>
+</head>
+<body>
+    <h1>管理员API测试</h1>
+
+    <button onclick="testWithdrawals()">测试提现申请API</button>
+    <pre id="withdrawals-result"></pre>
+
+    <button onclick="testPoints()">测试积分记录API</button>
+    <pre id="points-result"></pre>
+
+    <script>
+        async function testWithdrawals() {
+            try {
+                const response = await fetch('/admin/api/admin/withdrawals/pending');
+                const result = await response.json();
+                document.getElementById('withdrawals-result').textContent = JSON.stringify(result, null, 2);
+            } catch (error) {
+                document.getElementById('withdrawals-result').textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function testPoints() {
+            try {
+                const response = await fetch('/admin/api/points/records');
+                const result = await response.json();
+                document.getElementById('points-result').textContent = JSON.stringify(result, null, 2);
+            } catch (error) {
+                document.getElementById('points-result').textContent = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

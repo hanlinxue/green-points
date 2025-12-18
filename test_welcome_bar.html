@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>测试欢迎栏</title>
+  <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+  <h1>这是一个测试页面</h1>
+  <p>用于测试欢迎栏效果</p>
+  <p>当前路径：<span id="currentPath"></span></p>
+
+  <script src="static/js/welcome_bar_enhanced.js"></script>
+  <script>
+    document.getElementById('currentPath').textContent = window.location.pathname;
+  </script>
+</body>
+</html>

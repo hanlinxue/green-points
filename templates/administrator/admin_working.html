@@ -1,0 +1,297 @@
+<!-- 管理员审核界面 - 工作版本 -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理员 - 审核中心</title>
+  <link rel="stylesheet" href="../../static/css/style.css">
+  <style>
+    .dashboard { display: flex; min-height: 100vh; }
+    .dash-nav { width: 250px; background: #1f2937; color: white; padding: 20px 0; }
+    .dash-nav a { display: block; padding: 15px 20px; color: #9ca3af; text-decoration: none; }
+    .dash-nav a.active { background: #374151; color: white; }
+    .dash-main { flex: 1; padding: 30px; background: #f9fafb; }
+    .panel { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .card { border: 1px solid #e5e7eb; padding: 15px; margin: 10px 0; border-radius: 6px; background: white; }
+    .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn.danger { background: #ef4444; color: white; }
+    .btn:not(.danger) { background: #10b981; color: white; }
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
+    .stat-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .stat-card span { display: block; color: #6b7280; font-size: 14px; }
+    .stat-card strong { display: block; font-size: 32px; margin: 10px 0; }
+    .empty-state { text-align: center; padding: 40px; color: #9ca3af; }
+    .scroll-container { max-height: 400px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <nav class="dash-nav">
+      <div class="brand" style="padding: 0 20px 20px; font-size: 20px; font-weight: bold;">绿色出行管理平台</div>
+      <a href="#" class="active">审核中心</a>
+      <a href="{{ url_for("admin.admin_users") }}">账户管理</a>
+      <a href="{{ url_for("admin.point_rules") }}">积分兑换规则</a>
+      <a href="{{ url_for("user.index") }}">退出登录</a>
+    </nav>
+
+    <div class="dash-main">
+      <div class="panel-header">
+        <div>
+          <h1>审核控制台</h1>
+          <p>实时处理出行、提现与积分流转</p>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <span>待审核出行</span>
+          <strong id="metricPendingTrips">—</strong>
+          <p style="color:var(--muted);margin-top:6px;">来自用户的待处理记录</p>
+        </div>
+        <div class="stat-card">
+          <span>提现申请</span>
+          <strong id="metricWithdrawals">—</strong>
+          <p style="color:var(--muted);margin-top:6px;">商户积分兑换现金</p>
+        </div>
+        <div class="stat-card">
+          <span>积分波动</span>
+          <strong id="metricPoints">—</strong>
+          <p style="color:var(--muted);margin-top:6px;">今日积分总变化</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>待审核出行记录</h2>
+        </div>
+        <div id="pendingTrips" class="scroll-container">
+          <div class="empty-state">加载中...</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>商户提现申请</h2>
+        </div>
+        <div id="withdrawalRequests" class="scroll-container">
+          <div class="empty-state">加载中...</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>积分流转记录</h2>
+        </div>
+        <div id="pointRecords" class="scroll-container">
+          <div class="empty-state">加载中...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 简化的 API fetch 函数
+    async function apiFetch(url, options = {}) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+          },
+          ...options
+        });
+
+        const data = await response.json();
+        data.ok = response.ok;
+        data.status = response.status;
+        return data;
+      } catch (error) {
+        console.error('API request failed:', error);
+        return { ok: false, message: error.message };
+      }
+    }
+
+    // 设置文本
+    function setText(id, text) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    }
+
+    // 获取待审核出行
+    async function fetchPendingTrips() {
+      try {
+        const res = await apiFetch("/admin/trips_pending");
+        const el = document.getElementById("pendingTrips");
+        if (!el) return;
+
+        el.innerHTML = "";
+        const items = (res.ok && res.data && Array.isArray(res.data.trips)) ? res.data.trips : [];
+        setText("metricPendingTrips", items.length);
+
+        if (items.length === 0) {
+          el.innerHTML = "<div class='empty-state'>暂无待审核出行记录</div>";
+          return;
+        }
+
+        items.forEach(trip => {
+          const node = document.createElement("div");
+          node.className = "card";
+          node.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <p style="margin:0"><strong>${trip.username}</strong> - ${trip.mode}</p>
+                <p style="color:#6b7280;margin-top:6px">距离：${trip.distance}km | 时段：${trip.period}</p>
+                <p style="color:#6b7280;margin-top:4px">创建时间：${trip.create_time}</p>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn" onclick="approveTrip(${trip.id})">通过</button>
+                <button class="btn danger" onclick="rejectTrip(${trip.id})">驳回</button>
+              </div>
+            </div>
+          `;
+          el.appendChild(node);
+        });
+      } catch (error) {
+        console.error('获取待审核出行失败:', error);
+        document.getElementById("pendingTrips").innerHTML = "<div class='empty-state'>加载失败</div>";
+      }
+    }
+
+    // 获取提现申请 - 这是重点
+    async function fetchWithdrawalRequests() {
+      try {
+        console.log('开始获取提现申请...');
+        const res = await apiFetch("/admin/api/admin/withdrawals/pending");
+        console.log('提现申请响应:', res);
+
+        const el = document.getElementById("withdrawalRequests");
+        if (!el) return;
+
+        el.innerHTML = "";
+        const items = (res.ok && res.data && Array.isArray(res.data.items)) ? res.data.items : [];
+        setText("metricWithdrawals", items.length);
+
+        console.log('提现申请数量:', items.length);
+
+        if (items.length === 0) {
+          el.innerHTML = "<div class='empty-state'>暂无提现申请</div>";
+          return;
+        }
+
+        items.forEach(w => {
+          const node = document.createElement("div");
+          node.className = "card";
+          node.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <p style="margin:0"><strong>${w.merchantName || w.merchantId}</strong></p>
+                <p style="color:#6b7280;margin-top:6px">提现单号：${w.withdrawal_no}</p>
+                <p style="color:#6b7280;margin-top:4px">${w.points}积分 → ¥${w.amount.toFixed(2)}</p>
+                <p style="color:#6b7280;margin-top:4px">${w.createTime}</p>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <button class="btn" onclick="adminDecideWithdrawal('${w.id}', true)">批准</button>
+                <button class="btn danger" onclick="adminDecideWithdrawal('${w.id}', false)">拒绝</button>
+              </div>
+            </div>
+          `;
+          el.appendChild(node);
+        });
+      } catch (error) {
+        console.error('获取提现申请失败:', error);
+        document.getElementById("withdrawalRequests").innerHTML = "<div class='empty-state'>加载失败</div>";
+      }
+    }
+
+    // 获取积分记录
+    async function fetchPointRecords() {
+      try {
+        const res = await apiFetch("/admin/api/points/records");
+        const el = document.getElementById("pointRecords");
+        if (!el) return;
+
+        el.innerHTML = "";
+        const items = (res.ok && res.data && Array.isArray(res.data.items)) ? res.data.items : [];
+        const totalPoints = items.reduce((sum, r) => sum + (Number(r.points) || 0), 0);
+        setText("metricPoints", items.length ? `${totalPoints > 0 ? "+" : ""}${totalPoints}` : "0");
+
+        if (items.length === 0) {
+          el.innerHTML = "<div class='empty-state'>暂无记录</div>";
+          return;
+        }
+
+        items.forEach(r => {
+          const node = document.createElement("div");
+          node.className = "card";
+          node.innerHTML = `
+            <p><strong>${r.type}</strong>: ${r.points} 积分</p>
+            <p style="color:#6b7280;font-size:12px">${r.time}</p>
+          `;
+          el.appendChild(node);
+        });
+      } catch (error) {
+        console.error('获取积分记录失败:', error);
+        document.getElementById("pointRecords").innerHTML = "<div class='empty-state'>加载失败</div>";
+      }
+    }
+
+    // 处理出行审核
+    async function approveTrip(tripId) {
+      const reason = prompt("请输入审核备注（可选）：");
+      try {
+        const res = await apiFetch(`/admin/trips_pending/${tripId}/decide`, {
+          method: "POST",
+          body: JSON.stringify({ approve: true, rejectReason: reason })
+        });
+        alert(res.message || (res.ok ? "审核通过" : "审核失败"));
+        if (res.ok) fetchPendingTrips();
+      } catch (error) {
+        alert("操作失败");
+        console.error(error);
+      }
+    }
+
+    async function rejectTrip(tripId) {
+      const reason = prompt("请输入驳回原因：");
+      if (!reason) return;
+      try {
+        const res = await apiFetch(`/admin/trips_pending/${tripId}/decide`, {
+          method: "POST",
+          body: JSON.stringify({ approve: false, rejectReason: reason })
+        });
+        alert(res.message || (res.ok ? "审核驳回" : "审核失败"));
+        if (res.ok) fetchPendingTrips();
+      } catch (error) {
+        alert("操作失败");
+        console.error(error);
+      }
+    }
+
+    // 处理提现申请
+    async function adminDecideWithdrawal(id, approve) {
+      if (!confirm(approve ? "批准提现？" : "拒绝提现？")) return;
+      try {
+        const res = await apiFetch(`/admin/api/admin/withdrawals/${id}/decide`, {
+          method: "POST",
+          body: JSON.stringify({ approve })
+        });
+        alert(res.data?.message || (res.ok ? "操作成功" : "操作失败"));
+        if (res.ok) fetchWithdrawalRequests();
+      } catch (error) {
+        alert("操作失败");
+        console.error(error);
+      }
+    }
+
+    // 页面初始化
+    window.onload = function() {
+      console.log('页面加载完成，开始初始化...');
+      fetchPendingTrips();
+      fetchWithdrawalRequests();
+      fetchPointRecords();
+    };
+  </script>
+</body>
+</html>

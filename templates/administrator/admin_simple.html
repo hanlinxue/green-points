@@ -1,0 +1,98 @@
+<!-- 简化版管理员界面 -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理员 - 审核中心（简化版）</title>
+  <link rel="stylesheet" href="../../static/css/style.css">
+  <style>
+    .container {
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+    .section {
+      margin-bottom: 30px;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    .btn {
+      padding: 8px 16px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    .btn-primary { background: #007bff; color: white; }
+    .btn-danger { background: #dc3545; color: white; }
+    .item {
+      padding: 10px;
+      margin: 5px 0;
+      border-bottom: 1px solid #eee;
+    }
+    pre {
+      background: #f8f9fa;
+      padding: 10px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>管理员审核中心（简化版）</h1>
+
+    <div class="section">
+      <h2>快速链接</h2>
+      <a href="{{ url_for('admin.admin_users') }}" class="btn btn-primary">账户管理</a>
+      <a href="{{ url_for('admin.point_rules') }}" class="btn btn-primary">积分兑换规则</a>
+      <a href="{{ url_for('user.index') }}" class="btn btn-danger">退出登录</a>
+    </div>
+
+    <div class="section">
+      <h2>API测试</h2>
+      <button onclick="testWithdrawals()" class="btn btn-primary">测试提现申请API</button>
+      <button onclick="testPoints()" class="btn btn-primary">测试积分记录API</button>
+      <button onclick="testPending()" class="btn btn-primary">测试待审核出行API</button>
+      <pre id="api-result">点击按钮测试API...</pre>
+    </div>
+  </div>
+
+  <script>
+    async function testWithdrawals() {
+      const result = document.getElementById('api-result');
+      try {
+        const response = await fetch('/admin/api/admin/withdrawals/pending');
+        const data = await response.json();
+        result.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        result.textContent = '错误: ' + error.message;
+      }
+    }
+
+    async function testPoints() {
+      const result = document.getElementById('api-result');
+      try {
+        const response = await fetch('/admin/api/points/records');
+        const data = await response.json();
+        result.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        result.textContent = '错误: ' + error.message;
+      }
+    }
+
+    async function testPending() {
+      const result = document.getElementById('api-result');
+      try {
+        const response = await fetch('/admin/trips_pending');
+        const data = await response.json();
+        result.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        result.textContent = '错误: ' + error.message;
+      }
+    }
+
+    // 不加载任何外部JS，避免错误
+    console.log('简化版管理员页面已加载');
+  </script>
+</body>
+</html>

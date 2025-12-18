@@ -3,10 +3,11 @@
 <html lang="zh">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>管理员 - 审核中心</title>
   <link rel="stylesheet" href="../../static/css/style.css">
 </head>
-<body onload="initAdminReview()">
+<body>
   <div class="dashboard">
     <nav class="dash-nav">
       <div class="brand">绿色出行管理平台</div>
@@ -69,5 +70,51 @@
   </div>
 
   <script src="../../static/js/script.js"></script>
+  <script src="../../static/js/welcome_bar_enhanced.js"></script>
+<script>
+// 页面加载完成后确保初始化
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Admin page DOM loaded');
+
+  // 延迟执行，确保 script.js 中的函数已加载
+  setTimeout(() => {
+    console.log('Initializing admin review...');
+
+    try {
+      // 检查函数是否存在
+      console.log('Checking functions...');
+      console.log('fetchPendingTrips:', typeof fetchPendingTrips);
+      console.log('fetchWithdrawalRequests:', typeof fetchWithdrawalRequests);
+      console.log('fetchPointRecords:', typeof fetchPointRecords);
+
+      // 获取待审核出行
+      if (typeof fetchPendingTrips === 'function') {
+        console.log('Fetching pending trips...');
+        fetchPendingTrips().catch(err => console.error('fetchPendingTrips error:', err));
+      } else {
+        console.error('fetchPendingTrips function not found');
+      }
+
+      // 获取提现申请
+      if (typeof fetchWithdrawalRequests === 'function') {
+        console.log('Fetching withdrawal requests...');
+        fetchWithdrawalRequests().catch(err => console.error('fetchWithdrawalRequests error:', err));
+      } else {
+        console.error('fetchWithdrawalRequests function not found');
+      }
+
+      // 获取积分记录
+      if (typeof fetchPointRecords === 'function') {
+        console.log('Fetching point records...');
+        fetchPointRecords().catch(err => console.error('fetchPointRecords error:', err));
+      } else {
+        console.error('fetchPointRecords function not found');
+      }
+    } catch (error) {
+      console.error('页面初始化错误:', error);
+    }
+  }, 500); // 增加延迟时间
+});
+</script>
 </body>
 </html>

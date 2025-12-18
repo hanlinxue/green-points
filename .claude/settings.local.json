@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(curl:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(start:*)",
+      "Bash(git restore:*)",
+      "Bash(git reset:*)",
+      "Bash(dir:*)"
+    ]
+  }
+}

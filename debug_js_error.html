@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JavaScript调试工具</title>
+</head>
+<body>
+    <h1>JavaScript调试</h1>
+    <div id="debug-output"></div>
+
+    <script>
+        function debugJS() {
+            const output = document.getElementById('debug-output');
+
+            // 检查页面中可能引起问题的元素
+            const elements = [
+                'pendingTrips',
+                'withdrawalRequests',
+                'pointRecords',
+                'metricPendingTrips',
+                'metricWithdrawals',
+                'metricPoints'
+            ];
+
+            let html = '<h2>检查DOM元素：</h2>';
+
+            elements.forEach(id => {
+                const el = document.getElementById(id);
+                html += `<p><strong>${id}</strong>: ${el ? '存在' : '❌ 不存在'}</p>`;
+            });
+
+            // 监听错误
+            window.addEventListener('error', function(e) {
+                output.innerHTML += `<h2 style="color: red;">JavaScript错误：</h2>`;
+                output.innerHTML += `<pre>${e.error}</pre>`;
+                output.innerHTML += `<p>文件: ${e.filename}</p>`;
+                output.innerHTML += `<p>行号: ${e.lineno}</p>`;
+                output.innerHTML += `<p>列号: ${e.colno}</p>`;
+            });
+
+            output.innerHTML = html;
+
+            // 尝试运行可能出错的代码
+            setTimeout(() => {
+                try {
+                    if (typeof fetchWithdrawalRequests === 'function') {
+                        console.log('fetchWithdrawalRequests 函数存在');
+                    }
+                    if (typeof fetchPointRecords === 'function') {
+                        console.log('fetchPointRecords 函数存在');
+                    }
+                } catch(e) {
+                    output.innerHTML += `<h2 style="color: red;">运行错误：</h2>`;
+                    output.innerHTML += `<pre>${e.stack}</pre>`;
+                }
+            }, 500);
+        }
+    </script>
+
+    <button onclick="debugJS()">运行调试</button>
+</body>
+</html>

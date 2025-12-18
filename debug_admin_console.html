@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>调试控制台</title>
+</head>
+<body>
+  <h1>管理员控制台调试</h1>
+
+  <div>
+    <h2>测试步骤</h2>
+    <ol>
+      <li>先访问 <a href="/admin/admin_index" target="_blank">管理员主页</a></li>
+      <li>然后回到这个页面查看调试信息</li>
+    </ol>
+  </div>
+
+  <hr>
+
+  <div>
+    <h2>调试信息</h2>
+    <button onclick="checkGlobals()">检查全局变量</button>
+    <button onclick="testAPIs()">测试 API</button>
+    <button onclick="clearLog()">清空日志</button>
+  </div>
+
+  <pre id="debugLog" style="background: #f0f0f0; padding: 10px; margin-top: 10px; height: 400px; overflow-y: auto;"></pre>
+
+  <script>
+    const log = document.getElementById('debugLog');
+
+    function addLog(message) {
+      const time = new Date().toLocaleTimeString();
+      log.textContent += `[${time}] ${message}\n`;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    // 检查全局变量
+    function checkGlobals() {
+      addLog('\n=== 检查全局变量 ===');
+
+      // 检查关键函数是否存在
+      const functions = [
+        'fetchPendingTrips',
+        'fetchWithdrawalRequests',
+        'fetchPointRecords',
+        'apiFetch',
+        'setText'
+      ];
+
+      functions.forEach(funcName => {
+        if (typeof window[funcName] === 'function') {
+          addLog(`✓ ${funcName} 函数存在`);
+        } else {
+          addLog(`✗ ${funcName} 函数不存在`);
+        }
+      });
+
+      // 检查 script.js 是否加载
+      const scripts = document.querySelectorAll('script');
+      addLog(`\n当前页面脚本数量: ${scripts.length}`);
+      scripts.forEach((script, index) => {
+        addLog(`  脚本 ${index + 1}: ${script.src || '内联脚本'}`);
+      });
+    }
+
+    // 测试 API
+    async function testAPIs() {
+      addLog('\n=== 测试 API ===');
+
+      // 测试 API 函数
+      if (typeof window.apiFetch === 'function') {
+        addLog('✓ apiFetch 函数存在');
+
+        // 测试获取提现申请
+        try {
+          addLog('测试获取提现申请...');
+          const res = await window.apiFetch('/admin/api/admin/withdrawals/pending');
+          addLog(`API 响应: ${JSON.stringify(res, null, 2)}`);
+
+          if (res.ok && res.data && res.data.items) {
+            addLog(`✓ 提现申请数量: ${res.data.items.length}`);
+          }
+        } catch (e) {
+          addLog(`✗ API 调用失败: ${e.message}`);
+        }
+      } else {
+        addLog('✗ apiFetch 函数不存在');
+      }
+
+      // 如果 fetchWithdrawalRequests 存在，尝试调用
+      if (typeof window.fetchWithdrawalRequests === 'function') {
+        addLog('\n尝试调用 fetchWithdrawalRequests...');
+        try {
+          await window.fetchWithdrawalRequests();
+          addLog('✓ fetchWithdrawalRequests 执行成功');
+        } catch (e) {
+          addLog(`✗ fetchWithdrawalRequests 执行失败: ${e.message}`);
+        }
+      }
+    }
+
+    // 清空日志
+    function clearLog() {
+      log.textContent = '';
+    }
+
+    // 页面加载时记录
+    window.onload = () => {
+      addLog('调试页面加载完成');
+      addLog('当前时间: ' + new Date().toLocaleString());
+
+      // 延迟检查，看看是否有其他脚本加载
+      setTimeout(() => {
+        addLog('\n=== 3秒后检查 ===');
+        checkGlobals();
+      }, 3000);
+    };
+
+    // 监听控制台错误
+    window.addEventListener('error', (event) => {
+      addLog(`[错误] ${event.message} at ${event.filename}:${event.lineno}`);
+    });
+
+    // 监听未处理的 Promise 拒绝
+    window.addEventListener('unhandledrejection', (event) => {
+      addLog(`[未处理的Promise] ${event.reason}`);
+    });
+  </script>
+
+  <!-- 加载与 admin.html 相同的脚本 -->
+  <script src="../../static/js/script.js"></script>
+</body>
+</html>

@@ -5,6 +5,7 @@ from apps.administrators.models import *
 from apps.merchants.models import *
 from apps.users.models import *
 from exts import db
+import uuid
 
 merchant_bp = Blueprint('merchant', __name__, url_prefix='/merchant')
 
@@ -413,3 +414,525 @@ def get_merchant_stats():
     except Exception as e:
         print(f"获取商户统计失败：{str(e)}")
         return jsonify({"error": "获取统计信息失败，请稍后重试！"}), 500
+
+
+# %%订单管理API
+# 获取商户订单列表
+@merchant_bp.route('/merchant_orders', methods=['GET'])
+def get_merchant_orders():
+    """获取当前商户的订单列表"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"error": "未登录，请先登录！"}), 401
+
+    try:
+        # 查询当前商户的订单
+        orders = Order.query.filter_by(
+            merchant_username=username,
+            is_delete=0
+        ).order_by(Order.create_time.desc()).all()
+
+        result = []
+        for order in orders:
+            # 查询商品信息
+            goods = Goods.query.filter_by(id=order.goods_id).first()
+
+            # 查询用户信息
+            user = User.query.filter_by(username=order.user_username).first()
+
+            # 查询收货地址
+            address = None
+            if order.address_id:
+                address = Address.query.filter_by(id=order.address_id).first()
+
+            # 状态映射
+            status_map = {
+                0: "创建中",
+                1: "已扣积分",
+                2: "商户已接单",
+                3: "已发货",
+                4: "完成",
+                5: "取消",
+                6: "售后中"
+            }
+
+            result.append({
+                "id": order.id,
+                "order_no": order.order_no,
+                "user_nickname": user.nickname if user else order.user_username,
+                "user_phone": user.phone if user else "",
+                "goods_name": goods.goods_name if goods else "商品已删除",
+                "goods_img": goods.img_url if goods else "",
+                "point_amount": order.point_amount,
+                "order_status": order.order_status,
+                "order_status_text": status_map.get(order.order_status, "未知状态"),
+                "logistics_no": order.logistics_no,
+                "logistics_company": order.logistics_company,
+                "address_info": {
+                    "name": address.name if address else "",
+                    "phone": address.phone if address else "",
+                    "region": address.region if address else "",
+                    "detail": address.detail if address else ""
+                } if address else None,
+                "create_time": order.create_time.strftime("%Y-%m-%d %H:%M:%S") if order.create_time else "",
+                "pay_time": order.pay_time.strftime("%Y-%m-%d %H:%M:%S") if order.pay_time else "",
+                "ship_time": order.ship_time.strftime("%Y-%m-%d %H:%M:%S") if order.ship_time else "",
+                "finish_time": order.finish_time.strftime("%Y-%m-%d %H:%M:%S") if order.finish_time else "",
+                "remark": order.remark
+            })
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        print(f"查询订单列表失败：{str(e)}")
+        return jsonify({"error": "获取订单列表失败，请稍后重试！"}), 500
+
+
+# 接单
+@merchant_bp.route('/merchant_orders/<int:order_id>/accept', methods=['POST'])
+def accept_order(order_id):
+    """商户接单"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"error": "未登录，请先登录！"}), 401
+
+    try:
+        # 查询订单并验证权限
+        order = Order.query.filter_by(
+            id=order_id,
+            merchant_username=username,
+            is_delete=0
+        ).first()
+
+        if not order:
+            return jsonify({"error": "订单不存在或无权限操作！"}), 404
+
+        # 验证订单状态
+        if order.order_status != 1:  # 已扣积分状态才能接单
+            return jsonify({"error": "订单状态不允许接单！"}), 400
+
+        # 更新订单状态
+        order.order_status = 2  # 商户已接单
+        order.update_time = datetime.now()
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "接单成功！"
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"接单失败：{str(e)}")
+        return jsonify({"error": "接单失败，请稍后重试！"}), 500
+
+
+# 发货
+@merchant_bp.route('/merchant_orders/<int:order_id>/ship', methods=['POST'])
+def ship_order(order_id):
+    """商户发货"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"error": "未登录，请先登录！"}), 401
+
+    if not request.is_json:
+        return jsonify({"error": "请求格式错误，请提交JSON数据！"}), 400
+
+    try:
+        data = request.get_json()
+        logistics_no = data.get('logistics_no', '').strip()
+        logistics_company = data.get('logistics_company', '').strip()
+
+        # 验证必填字段
+        if not logistics_no:
+            return jsonify({"error": "物流单号不能为空！"}), 400
+
+        if not logistics_company:
+            return jsonify({"error": "物流公司不能为空！"}), 400
+
+        # 查询订单并验证权限
+        order = Order.query.filter_by(
+            id=order_id,
+            merchant_username=username,
+            is_delete=0
+        ).first()
+
+        if not order:
+            return jsonify({"error": "订单不存在或无权限操作！"}), 404
+
+        # 验证订单状态
+        if order.order_status != 2:  # 已接单状态才能发货
+            return jsonify({"error": "订单状态不允许发货！"}), 400
+
+        # 更新订单状态
+        order.order_status = 3  # 已发货
+        order.logistics_no = logistics_no
+        order.logistics_company = logistics_company
+        order.ship_time = datetime.now()
+        order.update_time = datetime.now()
+
+        # 更新用户积分流水中的兑换状态
+        user_flow = PointsFlow.query.filter_by(
+            username=order.user_username,
+            goods_id=order.goods_id,
+            points=-order.point_amount
+        ).filter(
+            PointsFlow.create_time >= order.create_time
+        ).first()
+
+        if user_flow:
+            user_flow.exchange_status = "已发货"
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "发货成功！"
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"发货失败：{str(e)}")
+        return jsonify({"error": "发货失败，请稍后重试！"}), 500
+
+
+# 完成订单
+@merchant_bp.route('/merchant_orders/<int:order_id>/complete', methods=['POST'])
+def complete_order(order_id):
+    """完成订单"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"error": "未登录，请先登录！"}), 401
+
+    try:
+        # 查询订单并验证权限
+        order = Order.query.filter_by(
+            id=order_id,
+            merchant_username=username,
+            is_delete=0
+        ).first()
+
+        if not order:
+            return jsonify({"error": "订单不存在或无权限操作！"}), 404
+
+        # 验证订单状态
+        if order.order_status != 3:  # 已发货状态才能完成
+            return jsonify({"error": "订单状态不允许完成！"}), 400
+
+        # 更新订单状态
+        order.order_status = 4  # 完成
+        order.finish_time = datetime.now()
+        order.update_time = datetime.now()
+
+        # 更新用户积分流水中的兑换状态
+        user_flow = PointsFlow.query.filter_by(
+            username=order.user_username,
+            goods_id=order.goods_id,
+            points=-order.point_amount
+        ).filter(
+            PointsFlow.create_time >= order.create_time
+        ).first()
+
+        if user_flow:
+            user_flow.exchange_status = "已完成"
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "订单已完成！"
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"完成订单失败：{str(e)}")
+        return jsonify({"error": "操作失败，请稍后重试！"}), 500
+
+
+# 取消订单
+@merchant_bp.route('/merchant_orders/<int:order_id>/cancel', methods=['POST'])
+def cancel_order(order_id):
+    """取消订单"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"error": "未登录，请先登录！"}), 401
+
+    if not request.is_json:
+        return jsonify({"error": "请求格式错误，请提交JSON数据！"}), 400
+
+    try:
+        data = request.get_json()
+        cancel_reason = data.get('cancel_reason', '').strip()
+
+        # 查询订单并验证权限
+        order = Order.query.filter_by(
+            id=order_id,
+            merchant_username=username,
+            is_delete=0
+        ).first()
+
+        if not order:
+            return jsonify({"error": "订单不存在或无权限操作！"}), 404
+
+        # 验证订单状态
+        if order.order_status in [4, 5]:  # 已完成或已取消不能再次取消
+            return jsonify({"error": "订单状态不允许取消！"}), 400
+
+        # 退还用户积分
+        if order.order_status == 1:  # 已扣积分的需要退还
+            user = User.query.filter_by(username=order.user_username).first()
+            if user:
+                user.now_points += order.point_amount
+                user.use_points -= order.point_amount
+
+                # 创建退还积分流水
+                refund_flow = PointsFlow(
+                    username=order.user_username,
+                    change_type="获得",
+                    reason="订单取消退还",
+                    points=order.point_amount,
+                    balance=user.now_points,
+                    goods_id=order.goods_id,
+                    goods_name=Goods.query.filter_by(id=order.goods_id).first().goods_name if Goods.query.filter_by(id=order.goods_id).first() else ""
+                )
+                db.session.add(refund_flow)
+
+            # 扣除商户积分
+            merchant = Merchant.query.filter_by(username=username).first()
+            if merchant:
+                merchant.now_points -= order.point_amount
+                merchant.all_points -= order.point_amount
+
+                # 创建商户扣除流水
+                merchant_flow = PointsFlow(
+                    username=username,
+                    change_type="扣除",
+                    reason="订单取消扣除",
+                    points=-order.point_amount,
+                    balance=merchant.now_points,
+                    goods_id=order.goods_id,
+                    goods_name=Goods.query.filter_by(id=order.goods_id).first().goods_name if Goods.query.filter_by(id=order.goods_id).first() else ""
+                )
+                db.session.add(merchant_flow)
+
+            # 恢复商品库存
+            goods = Goods.query.filter_by(id=order.goods_id).first()
+            if goods:
+                goods.stock += 1
+                if goods.stock > 0 and goods.status == GoodsStatusEnum.SOLD_OUT.value:
+                    goods.status = GoodsStatusEnum.ON_SHELF.value
+
+        # 更新订单状态
+        order.order_status = 5  # 取消
+        order.cancel_time = datetime.now()
+        order.cancel_reason = cancel_reason
+        order.update_time = datetime.now()
+
+        # 更新用户积分流水中的兑换状态
+        user_flow = PointsFlow.query.filter_by(
+            username=order.user_username,
+            goods_id=order.goods_id,
+            points=-order.point_amount
+        ).filter(
+            PointsFlow.create_time >= order.create_time
+        ).first()
+
+        if user_flow:
+            user_flow.exchange_status = "已取消"
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "订单已取消！"
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"取消订单失败：{str(e)}")
+        return jsonify({"error": "取消订单失败，请稍后重试！"}), 500
+
+
+# %%提现相关API
+@merchant_bp.route('/api/get-merchant-points', methods=['GET'])
+def get_merchant_points():
+    """获取商户积分余额和兑换汇率"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"error": "未登录，请先登录！"}), 401
+
+    try:
+        # 获取商户信息
+        merchant = Merchant.query.filter_by(username=username).first()
+        if not merchant:
+            return jsonify({"error": "商户不存在！"}), 404
+
+        # 获取当前有效的积分兑换汇率
+        exchange_rate_obj = PointsExchangeRate.query.filter_by(
+            is_active=True,
+            currency_code='CNY'  # 人民币
+        ).first()
+
+        if not exchange_rate_obj:
+            return jsonify({"error": "积分兑换汇率未设置！"}), 500
+
+        exchange_rate = float(exchange_rate_obj.exchange_rate)  # 1积分=X元
+
+        return jsonify({
+            "points": merchant.now_points,
+            "exchangeRate": exchange_rate,
+            "currencySymbol": exchange_rate_obj.symbol
+        }), 200
+
+    except Exception as e:
+        print(f"获取商户积分失败：{str(e)}")
+        return jsonify({"error": "获取积分信息失败，请稍后重试！"}), 500
+
+
+@merchant_bp.route('/api/process-withdrawal', methods=['POST'])
+def process_withdrawal():
+    """处理商户提现申请"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"error": "未登录，请先登录！"}), 401
+
+    if not request.is_json:
+        return jsonify({"error": "请求格式错误，请提交JSON数据！"}), 400
+
+    try:
+        data = request.get_json()
+        withdraw_points = int(data.get('withdrawAmount', 0))  # 前端传的是积分数量
+
+        # 验证提现积分数量
+        if withdraw_points <= 0:
+            return jsonify({"error": "提现积分数量必须大于0！"}), 400
+
+        # 获取商户信息并验证积分余额
+        merchant = Merchant.query.filter_by(username=username).first()
+        if not merchant:
+            return jsonify({"error": "商户不存在！"}), 404
+
+        if merchant.now_points < withdraw_points:
+            return jsonify({"error": "积分余额不足！"}), 400
+
+        # 获取当前有效的积分兑换汇率
+        exchange_rate_obj = PointsExchangeRate.query.filter_by(
+            is_active=True,
+            currency_code='CNY'
+        ).first()
+
+        if not exchange_rate_obj:
+            return jsonify({"error": "积分兑换汇率未设置！"}), 500
+
+        exchange_rate = float(exchange_rate_obj.exchange_rate)
+        cash_amount = withdraw_points * exchange_rate  # 计算实际提现金额
+
+        # 生成提现单号
+        withdrawal_no = f"WD{datetime.now().strftime('%Y%m%d%H%M%S')}{str(uuid.uuid4())[:8].upper()}"
+
+        # 创建提现记录
+        withdrawal = WithdrawalRecord(
+            withdrawal_no=withdrawal_no,
+            merchant_username=username,
+            points_amount=withdraw_points,
+            cash_amount=cash_amount,
+            exchange_rate=exchange_rate,
+            status=0,  # 待审核
+            create_time=datetime.now()
+        )
+        db.session.add(withdrawal)
+
+        # 扣减商户积分
+        merchant.now_points -= withdraw_points
+        merchant.use_points += withdraw_points
+
+        # 创建积分流水记录
+        points_flow = PointsFlow(
+            username=username,
+            change_type="提现",
+            reason=f"积分提现申请（单号：{withdrawal_no}）",
+            points=-withdraw_points,
+            balance=merchant.now_points,
+            goods_id=None,
+            goods_name="积分提现"
+        )
+        db.session.add(points_flow)
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "提现申请已提交，请等待审核！",
+            "withdrawal_no": withdrawal_no,
+            "cash_amount": float(cash_amount)
+        }), 200
+
+    except ValueError:
+        return jsonify({"error": "提现积分数量格式错误！"}), 400
+    except Exception as e:
+        db.session.rollback()
+        print(f"处理提现申请失败：{str(e)}")
+        return jsonify({"error": "提现申请失败，请稍后重试！"}), 500
+
+
+@merchant_bp.route('/api/withdrawal-records', methods=['GET'])
+def get_withdrawal_records():
+    """获取商户提现记录"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"error": "未登录，请先登录！"}), 401
+
+    try:
+        # 获取分页参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        per_page = min(per_page, 100)  # 限制每页最大数量
+
+        # 查询提现记录
+        records = WithdrawalRecord.query.filter_by(
+            merchant_username=username
+        ).order_by(
+            WithdrawalRecord.create_time.desc()
+        ).paginate(
+            page=page,
+            per_page=per_page,
+            error_out=False
+        )
+
+        # 格式化返回数据
+        records_list = []
+        for record in records.items:
+            records_list.append({
+                'id': record.id,
+                'withdrawal_no': record.withdrawal_no,
+                'points_amount': record.points_amount,
+                'cash_amount': float(record.cash_amount),
+                'exchange_rate': float(record.exchange_rate),
+                'status': record.status,
+                'bank_account': record.bank_account,
+                'bank_name': record.bank_name,
+                'account_holder': record.account_holder,
+                'remark': record.remark,
+                'admin_remark': record.admin_remark,
+                'create_time': record.create_time.isoformat() if record.create_time else None,
+                'approve_time': record.approve_time.isoformat() if record.approve_time else None,
+                'complete_time': record.complete_time.isoformat() if record.complete_time else None
+            })
+
+        return jsonify({
+            "success": True,
+            "records": records_list,
+            "pagination": {
+                "page": records.page,
+                "pages": records.pages,
+                "per_page": records.per_page,
+                "total": records.total,
+                "has_next": records.has_next,
+                "has_prev": records.has_prev
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"获取提现记录失败：{str(e)}")
+        return jsonify({"error": "获取提现记录失败，请稍后重试！"}), 500

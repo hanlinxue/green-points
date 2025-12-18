@@ -4,6 +4,82 @@
   <meta charset="utf-8">
   <title>订单处理 - GreenPoints</title>
   <link rel="stylesheet" href="../static/css/style.css">
+  <link rel="stylesheet" href="../static/css/merchant_orders.css">
+  <link rel="stylesheet" href="../static/css/common.css">
+  <style>
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideOutRight {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+    }
+
+    /* 优化订单卡片布局 */
+    .order-footer {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e9ecef;
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+    }
+
+    /* 优化订单卡片样式 */
+    .order-card {
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      background-color: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      transition: all 0.2s ease;
+    }
+
+    .order-card:hover {
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      transform: translateY(-2px);
+    }
+
+    .order-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .order-body {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 20px;
+      margin-bottom: 15px;
+    }
+
+    .product-info img {
+      width: 180px;
+      height: 180px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+
+    .user-info p {
+      margin: 5px 0;
+    }
+  </style>
 </head>
 <body onload="initOrderProcessing()">
   <div class="dashboard">
@@ -21,28 +97,661 @@
           <h1>订单处理</h1>
           <p>查看并处理用户订单。</p>
         </div>
-        <button class="btn-outline" onclick="fetchOrders()">刷新订单</button>
+        <div class="header-actions">
+          <select id="statusFilter" class="form-select" onchange="filterOrders()">
+            <option value="">全部状态</option>
+            <option value="1">已扣积分</option>
+            <option value="2">商户已接单</option>
+            <option value="3">已发货</option>
+            <option value="4">已完成</option>
+            <option value="5">已取消</option>
+            <option value="6">售后中</option>
+          </select>
+          <button class="btn-outline" onclick="fetchOrders()">刷新订单</button>
+        </div>
       </div>
 
       <div class="panel hover-lift">
         <div class="panel-header">
           <h2>订单列表</h2>
-          <span class="pill">待处理订单</span>
+          <span class="pill" id="orderCount">0 个订单</span>
         </div>
-        <div id="orderList" class="order-grid"></div>
-      </div>
 
-      <div class="panel hover-lift">
-        <div class="panel-header">
-          <h2>订单详情</h2>
+        <!-- 加载提示 -->
+        <div id="loadingSpinner" class="text-center py-5">
+          <div class="spinner"></div>
+          <p>正在加载订单...</p>
         </div>
-        <div id="orderDetails" class="order-details">
-          <!-- 订单详情将在这里显示 -->
+
+        <!-- 订单列表 -->
+        <div id="orderList" class="order-grid" style="display: none;"></div>
+
+        <!-- 空状态提示 -->
+        <div id="emptyState" class="text-center py-5" style="display: none;">
+          <i class="bi bi-receipt" style="font-size: 3rem; color: #999;"></i>
+          <h3 class="mt-3">暂无订单</h3>
+          <p>目前没有订单需要处理</p>
         </div>
       </div>
     </div>
   </div>
 
-  <script src="../static/js/script.js"></script>
+  <!-- 订单详情模态框 -->
+  <div id="orderDetailModal" class="modal" style="display: none;">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h3>订单详情</h3>
+        <span class="close" onclick="closeOrderDetailModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div id="orderDetailContent">
+          <!-- 订单详情将动态填充 -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeOrderDetailModal()">关闭</button>
+        <div id="orderActions" class="order-actions">
+          <!-- 操作按钮将动态填充 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 发货模态框 -->
+  <div id="shipModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>填写发货信息</h3>
+        <span class="close" onclick="closeShipModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="logisticsCompany">物流公司</label>
+          <select id="logisticsCompany" class="form-control">
+            <option value="">请选择物流公司</option>
+            <option value="顺丰速运">顺丰速运</option>
+            <option value="圆通速递">圆通速递</option>
+            <option value="中通快递">中通快递</option>
+            <option value="申通快递">申通快递</option>
+            <option value="韵达速递">韵达速递</option>
+            <option value="EMS">EMS</option>
+            <option value="德邦快递">德邦快递</option>
+            <option value="其他">其他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="logisticsNo">物流单号</label>
+          <input type="text" id="logisticsNo" class="form-control" placeholder="请输入物流单号">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeShipModal()">取消</button>
+        <button class="btn-primary" onclick="confirmShip()">确认发货</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 取消订单模态框 -->
+  <div id="cancelModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>取消订单</h3>
+        <span class="close" onclick="closeCancelModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="cancelReason">取消原因</label>
+          <textarea id="cancelReason" class="form-control" rows="3" placeholder="请输入取消原因"></textarea>
+        </div>
+        <div class="alert-warning">
+          <i class="bi bi-exclamation-triangle"></i>
+          注意：取消订单将退还用户积分，并扣除相应商户积分
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeCancelModal()">取消</button>
+        <button class="btn-danger" onclick="confirmCancel()">确认取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提示信息 -->
+  <div id="toast" class="toast" style="display: none;"></div>
+
+  <script src="../../static/js/script.js"></script>
+  <script src="../../static/js/welcome_bar_enhanced.js"></script>
+  <script>
+    let orders = [];
+    let currentOrderId = null;
+
+    // 页面初始化
+    async function initOrderProcessing() {
+      await fetchOrders();
+    }
+
+    // 获取订单列表
+    async function fetchOrders() {
+      const loadingSpinner = document.getElementById('loadingSpinner');
+      const orderList = document.getElementById('orderList');
+      const emptyState = document.getElementById('emptyState');
+      const orderCount = document.getElementById('orderCount');
+
+      // 显示加载提示
+      loadingSpinner.style.display = 'block';
+      orderList.style.display = 'none';
+      emptyState.style.display = 'none';
+
+      try {
+        const response = await fetch('/merchant/merchant_orders');
+        if (response.ok) {
+          orders = await response.json();
+          loadingSpinner.style.display = 'none';
+
+          // 更新订单数量
+          orderCount.textContent = `${orders.length} 个订单`;
+
+          if (orders.length > 0) {
+            displayOrders(orders);
+            orderList.style.display = 'grid';
+          } else {
+            emptyState.style.display = 'block';
+          }
+        } else {
+          throw new Error('获取订单列表失败');
+        }
+      } catch (error) {
+        console.error('获取订单失败:', error);
+        loadingSpinner.style.display = 'none';
+        showToast('获取订单列表失败，请稍后重试', 'error');
+        emptyState.style.display = 'block';
+      }
+    }
+
+    // 显示订单列表
+    function displayOrders(ordersToDisplay) {
+      const orderList = document.getElementById('orderList');
+      orderList.innerHTML = '';
+
+      ordersToDisplay.forEach(order => {
+        const orderCard = document.createElement('div');
+        orderCard.className = 'order-card';
+
+        // 状态对应的样式
+        const statusClass = getStatusClass(order.order_status);
+        const statusBadge = `<span class="status-badge ${statusClass}">${order.order_status_text}</span>`;
+
+        orderCard.innerHTML = `
+          <div class="order-header">
+            <div class="order-info">
+              <h4>订单号：${order.order_no}</h4>
+              <p class="text-muted">${order.create_time}</p>
+            </div>
+            ${statusBadge}
+          </div>
+
+          <div class="order-body">
+            <div class="product-info">
+              <img src="${order.goods_img || '/static/img/default_product.png'}"
+                   alt="${order.goods_name}"
+                   class="product-thumbnail"
+                   onerror="this.src='/static/img/default_product.png'">
+              <div class="product-details">
+                <h5>${order.goods_name}</h5>
+                <p class="text-muted">兑换积分：${order.point_amount}</p>
+              </div>
+            </div>
+
+            <div class="user-info">
+              <p><strong>收货人：</strong>${order.address_info ? order.address_info.name : '未填写'}</p>
+              <p><strong>联系电话：</strong>${order.address_info ? order.address_info.phone : ''}</p>
+              <p><strong>收货地址：</strong>${order.address_info ? order.address_info.region + ' ' + order.address_info.detail : '未填写'}</p>
+            </div>
+          </div>
+
+          <div class="order-footer">
+            <button class="btn-outline" data-action="showOrderDetail" data-order-id="${order.id}">查看详情</button>
+            ${getActionButtons(order)}
+          </div>
+        `;
+
+        orderList.appendChild(orderCard);
+      });
+    }
+
+    // 获取状态样式
+    function getStatusClass(status) {
+      const statusMap = {
+        1: 'status-pending',     // 已扣积分
+        2: 'status-processing',  // 商户已接单
+        3: 'status-shipped',     // 已发货
+        4: 'status-completed',   // 已完成
+        5: 'status-cancelled',   // 已取消
+        6: 'status-refunding'    // 售后中
+      };
+      return statusMap[status] || '';
+    }
+
+    // 获取操作按钮
+    function getActionButtons(order) {
+      switch (order.order_status) {
+        case 1:  // 已扣积分
+          return `
+            <button class="btn-outline" data-action="acceptOrder" data-order-id="${order.id}">接单</button>
+            <button class="btn-outline" data-action="showCancelModal" data-order-id="${order.id}">取消</button>
+          `;
+        case 2:  // 商户已接单
+          return `
+            <button class="btn-outline" data-action="showShipModal" data-order-id="${order.id}">发货</button>
+            <button class="btn-outline" data-action="showCancelModal" data-order-id="${order.id}">取消</button>
+          `;
+        case 3:  // 已发货
+          return `
+            <button class="btn-outline" data-action="completeOrder" data-order-id="${order.id}">确认完成</button>
+          `;
+        default:
+          return '';
+      }
+    }
+
+    // 筛选订单
+    function filterOrders() {
+      const status = document.getElementById('statusFilter').value;
+      let filteredOrders = orders;
+
+      if (status !== '') {
+        filteredOrders = orders.filter(o => o.order_status == status);
+      }
+
+      displayOrders(filteredOrders);
+    }
+
+    // 显示订单详情
+    function showOrderDetail(orderId) {
+      const order = orders.find(o => o.id === orderId);
+      if (!order) return;
+
+      const modal = document.getElementById('orderDetailModal');
+      const content = document.getElementById('orderDetailContent');
+      const actions = document.getElementById('orderActions');
+
+      content.innerHTML = `
+        <div class="detail-section">
+          <h4>订单信息</h4>
+          <div class="detail-row">
+            <span class="label">订单号：</span>
+            <span>${order.order_no}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">下单时间：</span>
+            <span>${order.create_time}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">订单状态：</span>
+            <span class="status-badge ${getStatusClass(order.order_status)}">${order.order_status_text}</span>
+          </div>
+          ${order.pay_time ? `
+          <div class="detail-row">
+            <span class="label">付款时间：</span>
+            <span>${order.pay_time}</span>
+          </div>
+          ` : ''}
+          ${order.ship_time ? `
+          <div class="detail-row">
+            <span class="label">发货时间：</span>
+            <span>${order.ship_time}</span>
+          </div>
+          ` : ''}
+          ${order.finish_time ? `
+          <div class="detail-row">
+            <span class="label">完成时间：</span>
+            <span>${order.finish_time}</span>
+          </div>
+          ` : ''}
+        </div>
+
+        <div class="detail-section">
+          <h4>商品信息</h4>
+          <div class="detail-row">
+            <span class="label">商品名称：</span>
+            <span>${order.goods_name}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">消耗积分：</span>
+            <span>${order.point_amount}</span>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4>用户信息</h4>
+          <div class="detail-row">
+            <span class="label">用户昵称：</span>
+            <span>${order.user_nickname}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">联系电话：</span>
+            <span>${order.user_phone}</span>
+          </div>
+        </div>
+
+        ${order.address_info ? `
+        <div class="detail-section">
+          <h4>收货地址</h4>
+          <div class="detail-row">
+            <span class="label">收货人：</span>
+            <span>${order.address_info.name}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">联系电话：</span>
+            <span>${order.address_info.phone}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">收货地址：</span>
+            <span>${order.address_info.region} ${order.address_info.detail}</span>
+          </div>
+        </div>
+        ` : ''}
+
+        ${order.logistics_no ? `
+        <div class="detail-section">
+          <h4>物流信息</h4>
+          <div class="detail-row">
+            <span class="label">物流公司：</span>
+            <span>${order.logistics_company}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">物流单号：</span>
+            <span>${order.logistics_no}</span>
+          </div>
+        </div>
+        ` : ''}
+
+        ${order.remark ? `
+        <div class="detail-section">
+          <h4>备注信息</h4>
+          <p>${order.remark}</p>
+        </div>
+        ` : ''}
+      `;
+
+      // 设置操作按钮
+      actions.innerHTML = getActionButtons(order);
+
+      modal.style.display = 'block';
+    }
+
+    // 关闭订单详情模态框
+    function closeOrderDetailModal() {
+      const modal = document.getElementById('orderDetailModal');
+      modal.style.display = 'none';
+      // 重置模态框内容
+      document.getElementById('orderDetailContent').innerHTML = '';
+      document.getElementById('orderActions').innerHTML = '';
+    }
+
+    // 接单
+    async function acceptOrder(orderId) {
+      try {
+        const response = await fetch(`/merchant/merchant_orders/${orderId}/accept`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          showToast(result.message, 'success');
+          closeOrderDetailModal();
+          await fetchOrders();
+        } else {
+          showToast(result.error || '接单失败', 'error');
+        }
+      } catch (error) {
+        console.error('接单失败:', error);
+        showToast('接单失败，请稍后重试', 'error');
+      }
+    }
+
+    // 显示发货模态框
+    function showShipModal(orderId) {
+      currentOrderId = orderId;
+      document.getElementById('logisticsCompany').value = '';
+      document.getElementById('logisticsNo').value = '';
+      document.getElementById('shipModal').style.display = 'block';
+    }
+
+    // 关闭发货模态框
+    function closeShipModal() {
+      const modal = document.getElementById('shipModal');
+      modal.style.display = 'none';
+      // 重置表单
+      document.getElementById('logisticsCompany').value = '';
+      document.getElementById('logisticsNo').value = '';
+      currentOrderId = null;
+    }
+
+    // 确认发货
+    async function confirmShip() {
+      const logisticsCompany = document.getElementById('logisticsCompany').value;
+      const logisticsNo = document.getElementById('logisticsNo').value;
+
+      if (!logisticsCompany || !logisticsNo) {
+        showToast('请填写完整的物流信息', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(`/merchant/merchant_orders/${currentOrderId}/ship`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            logistics_company: logisticsCompany,
+            logistics_no: logisticsNo
+          })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          showToast(result.message, 'success');
+          closeShipModal();
+          closeOrderDetailModal();
+          await fetchOrders();
+        } else {
+          showToast(result.error || '发货失败', 'error');
+        }
+      } catch (error) {
+        console.error('发货失败:', error);
+        showToast('发货失败，请稍后重试', 'error');
+      }
+    }
+
+    // 完成订单
+    async function completeOrder(orderId) {
+      if (!confirm('确认该订单已完成？')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/merchant/merchant_orders/${orderId}/complete`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          showToast(result.message, 'success');
+          closeOrderDetailModal();
+          await fetchOrders();
+        } else {
+          showToast(result.error || '操作失败', 'error');
+        }
+      } catch (error) {
+        console.error('完成订单失败:', error);
+        showToast('操作失败，请稍后重试', 'error');
+      }
+    }
+
+    // 显示取消订单模态框
+    function showCancelModal(orderId) {
+      currentOrderId = orderId;
+      document.getElementById('cancelReason').value = '';
+      document.getElementById('cancelModal').style.display = 'block';
+    }
+
+    // 关闭取消订单模态框
+    function closeCancelModal() {
+      const modal = document.getElementById('cancelModal');
+      modal.style.display = 'none';
+      // 重置表单
+      document.getElementById('cancelReason').value = '';
+      currentOrderId = null;
+    }
+
+    // 确认取消订单
+    async function confirmCancel() {
+      const cancelReason = document.getElementById('cancelReason').value;
+
+      if (!cancelReason) {
+        showToast('请填写取消原因', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(`/merchant/merchant_orders/${currentOrderId}/cancel`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            cancel_reason: cancelReason
+          })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          showToast(result.message, 'success');
+          closeCancelModal();
+          closeOrderDetailModal();
+          await fetchOrders();
+        } else {
+          showToast(result.error || '取消订单失败', 'error');
+        }
+      } catch (error) {
+        console.error('取消订单失败:', error);
+        showToast('取消订单失败，请稍后重试', 'error');
+      }
+    }
+
+    // 显示提示信息
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      toast.className = `toast toast-${type}`;
+      toast.textContent = message;
+      toast.style.display = 'block';
+      toast.style.position = 'fixed';
+      toast.style.top = '20px';
+      toast.style.right = '20px';
+      toast.style.zIndex = '10000';
+      toast.style.padding = '12px 24px';
+      toast.style.borderRadius = '6px';
+      toast.style.backgroundColor = type === 'success' ? '#28a745' :
+                                       type === 'error' ? '#dc3545' :
+                                       type === 'warning' ? '#ffc107' : '#17a2b8';
+      toast.style.color = 'white';
+      toast.style.fontSize = '14px';
+      toast.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+      toast.style.animation = 'slideInRight 0.3s ease-out';
+
+      setTimeout(() => {
+        toast.style.animation = 'slideOutRight 0.3s ease-out';
+        setTimeout(() => {
+          toast.style.display = 'none';
+        }, 300);
+      }, 3000);
+    }
+
+    // 点击模态框外部关闭
+    window.onclick = function(event) {
+      if (event.target === document.getElementById('orderDetailModal')) {
+        closeOrderDetailModal();
+      }
+      if (event.target === document.getElementById('shipModal')) {
+        closeShipModal();
+      }
+      if (event.target === document.getElementById('cancelModal')) {
+        closeCancelModal();
+      }
+    }
+
+    // 事件委托处理按钮点击
+    document.addEventListener('click', function(e) {
+      const button = e.target.tagName === 'BUTTON' ? e.target : e.target.closest('button');
+
+      if (button) {
+        // 获取数据属性
+        const action = button.dataset.action;
+        const orderId = button.dataset.orderId;
+
+        // 特殊处理模态框内的按钮
+        if (button.id === 'confirmShipBtn') {
+          e.preventDefault();
+          e.stopPropagation();
+          confirmShip();
+          return;
+        }
+
+        if (button.id === 'confirmCancelBtn') {
+          e.preventDefault();
+          e.stopPropagation();
+          confirmCancel();
+          return;
+        }
+
+        // 处理关闭按钮
+        if (button.classList.contains('close')) {
+          e.preventDefault();
+          e.stopPropagation();
+          const modal = button.closest('.modal');
+          if (modal) {
+            modal.style.display = 'none';
+          }
+          return;
+        }
+
+        // 处理订单操作按钮
+        if (action && orderId) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          switch(action) {
+            case 'showOrderDetail':
+              showOrderDetail(parseInt(orderId));
+              break;
+            case 'acceptOrder':
+              acceptOrder(parseInt(orderId));
+              break;
+            case 'showShipModal':
+              showShipModal(parseInt(orderId));
+              break;
+            case 'completeOrder':
+              completeOrder(parseInt(orderId));
+              break;
+            case 'showCancelModal':
+              showCancelModal(parseInt(orderId));
+              break;
+          }
+        }
+      }
+    });
+
+    </script>
 </body>
 </html>

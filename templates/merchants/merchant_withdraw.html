@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>积分提现 - GreenPoints</title>
-  <link rel="stylesheet" href="../static/css/style.css">
+  <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body onload="initWithdrawPage()">
   <div class="dashboard">
@@ -41,13 +41,140 @@
           <div class="input-group">
             <label for="withdrawAmount">提现积分</label>
             <input id="withdrawAmount" type="number" class="input" placeholder="请输入要提现的积分数量" min="1" required>
+            <small id="withdrawHint" style="color: #6b7280; margin-top: 4px; display: block;">最小提现积分为100</small>
           </div>
           <button type="submit" class="btn">申请提现</button>
         </form>
       </div>
+
+      <div class="panel hover-lift">
+        <div class="panel-header">
+          <h2>提现记录</h2>
+        </div>
+        <div id="withdrawalRecords" class="records-list">
+          <!-- 提现记录将在这里显示 -->
+          <p style="color: #6b7280; text-align: center; padding: 20px;">暂无提现记录</p>
+        </div>
+      </div>
     </div>
   </div>
 
-  <script src="../static/js/script.js"></script>
+  <script src="/static/js/script.js"></script>
+  <script>
+    // 页面初始化
+    function initWithdrawPage() {
+      fetchMerchantPoints();
+      fetchWithdrawalRecords();
+    }
+
+    // 获取提现记录
+    async function fetchWithdrawalRecords() {
+      try {
+        const res = await fetch('/merchant/api/withdrawal-records');
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          const container = document.getElementById('withdrawalRecords');
+          if (data.records.length === 0) {
+            container.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 20px;">暂无提现记录</p>';
+          } else {
+            const recordsHtml = data.records.map(record => {
+              const statusText = ['待审核', '审核通过', '审核拒绝', '提现完成', '提现失败'][record.status] || '未知';
+              const statusClass = ['warning', 'success', 'danger', 'success', 'danger'][record.status] || 'secondary';
+
+              return `
+                <div class="record-item" style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                      <p style="margin: 0; font-weight: 600;">提现单号：${record.withdrawal_no}</p>
+                      <p style="margin: 8px 0 4px 0; color: #6b7280;">
+                        提现积分：${record.points_amount} 积分 → 金额：${parseFloat(record.cash_amount).toFixed(2)}元
+                      </p>
+                      <p style="margin: 4px 0; color: #6b7280; font-size: 14px;">
+                        申请时间：${new Date(record.create_time).toLocaleString('zh-CN')}
+                      </p>
+                      ${record.remark ? `<p style="margin: 4px 0; color: #6b7280; font-size: 14px;">备注：${record.remark}</p>` : ''}
+                    </div>
+                    <div style="text-align: right;">
+                      <span class="badge bg-${statusClass}" style="padding: 4px 12px; border-radius: 12px; font-size: 14px;">
+                        ${statusText}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('');
+
+            container.innerHTML = recordsHtml;
+          }
+        } else {
+          console.error('获取提现记录失败：', data.error);
+        }
+      } catch (error) {
+        console.error('获取提现记录失败：', error);
+      }
+    }
+
+    // 重写processWithdrawal函数，增加成功后刷新记录
+    function processWithdrawal() {
+      const withdrawAmount = document.getElementById('withdrawAmount').value;
+      if (!withdrawAmount || withdrawAmount <= 0) {
+        alert('请输入有效的提现积分');
+        return Promise.resolve();
+      }
+
+      // 验证最小提现金额
+      if (withdrawAmount < 100) {
+        alert('最小提现积分为100');
+        return Promise.resolve();
+      }
+
+      // 获取商家的积分余额和兑换汇率
+      return fetch('/merchant/api/get-merchant-points')
+        .then(response => response.json())
+        .then(data => {
+          const points = data.points; // 商家的积分余额
+          const exchangeRate = data.exchangeRate; // 汇率
+
+          // 检查提现的积分是否小于等于商家余额
+          if (withdrawAmount > points) {
+            alert('您的积分余额不足');
+            return;
+          }
+
+          const withdrawalAmount = (withdrawAmount * exchangeRate).toFixed(2); // 计算人民币金额
+
+          // 确认提现
+          const confirmMsg = `您将要提现 ${withdrawAmount} 积分，兑换金额为 ${withdrawalAmount} 元。\n确认申请提现吗？`;
+          if (!confirm(confirmMsg)) {
+            return;
+          }
+
+          // 调用后端接口申请提现
+          return fetch('/merchant/api/process-withdrawal', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ withdrawAmount: withdrawAmount })
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              alert(`提现申请成功！\n提现单号：${data.withdrawal_no}\n兑换金额：${data.cash_amount.toFixed(2)}元\n请等待管理员审核`);
+              document.getElementById('withdrawAmount').value = ''; // 清空输入框
+              fetchMerchantPoints(); // 刷新积分信息
+              fetchWithdrawalRecords(); // 刷新提现记录
+            } else {
+              alert('提现申请失败：' + (data.error || '未知错误'));
+            }
+          });
+        })
+        .catch(error => {
+          console.error('Error processing withdrawal:', error);
+          alert('提现申请失败，请稍后重试');
+        });
+    }
+  </script>
 </body>
 </html>

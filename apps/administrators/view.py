@@ -271,3 +271,229 @@ def delete_point_rule(rule_id):
             "message": f"删除积分规则失败：{str(e)}",
             "data": []
         }), 500
+
+
+# 积分兑换汇率管理
+@admin_bp.route('/exchange_rates_show', methods=['GET'])
+def get_exchange_rates():
+    """获取所有兑换汇率"""
+    try:
+        rates = PointsExchangeRate.query.all()
+        rate_list = []
+        for rate in rates:
+            rate_list.append({
+                "id": rate.id,
+                "currency_code": rate.currency_code,
+                "currency_name": rate.currency_name,
+                "exchange_rate": float(rate.exchange_rate),
+                "symbol": rate.symbol,
+                "is_active": rate.is_active,
+                "create_time": rate.rdatetime.strftime("%Y-%m-%d %H:%M:%S") if rate.rdatetime else None,
+                "update_time": rate.udatetime.strftime("%Y-%m-%d %H:%M:%S") if rate.udatetime else None
+            })
+        return jsonify({"success": True, "data": rate_list}), 200
+    except Exception as e:
+        print(f"获取汇率失败：{str(e)}")
+        return jsonify({"success": False, "message": "获取汇率失败"}), 500
+
+
+@admin_bp.route('/save_exchange_rates', methods=['POST'])
+def save_exchange_rates():
+    """保存兑换汇率"""
+    try:
+        data = request.get_json()
+        if not isinstance(data, dict):
+            return jsonify({"success": False, "message": "参数格式错误！"}), 400
+
+        for item in data:
+            if item.get('id'):  # 更新现有记录
+                rate = PointsExchangeRate.query.get(item['id'])
+                if rate:
+                    rate.exchange_rate = float(item['exchange_rate'])
+                    rate.is_active = item.get('is_active', rate.is_active)
+            else:  # 新增记录
+                # 检查是否已存在相同货币
+                existing = PointsExchangeRate.query.filter_by(currency_code=item['currency_code']).first()
+                if not existing:
+                    new_rate = PointsExchangeRate(
+                        currency_code=item['currency_code'],
+                        exchange_rate=float(item['exchange_rate']),
+                        is_active=item.get('is_active', True)
+                    )
+                    db.session.add(new_rate)
+
+        db.session.commit()
+        return jsonify({"success": True, "message": "汇率保存成功！"}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"保存汇率失败：{str(e)}")
+        return jsonify({"success": False, "message": f"保存失败：{str(e)}"}), 500
+
+
+@admin_bp.route('/exchange_rates_delete/<int:rateId>', methods=['POST'])
+def delete_exchange_rate(rateId):
+    """删除兑换汇率"""
+    try:
+        rate = PointsExchangeRate.query.get(rateId)
+        if not rate:
+            return jsonify({"success": False, "message": "汇率不存在！"}), 404
+
+        db.session.delete(rate)
+        db.session.commit()
+        return jsonify({"success": True, "message": "删除成功！"}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"删除汇率失败：{str(e)}")
+        return jsonify({"success": False, "message": f"删除失败：{str(e)}"}), 500
+
+
+# API路由 - 提供给前端JavaScript调用
+@admin_bp.route('/api/points/records', methods=['GET'])
+def api_get_points_records():
+    """获取积分记录统计"""
+    try:
+        from apps.users.models import PointsFlow
+
+        # 获取最近7天的积分记录
+        from datetime import datetime, timedelta
+        start_date = datetime.now() - timedelta(days=7)
+
+        # 查询最近的积分流水
+        records = PointsFlow.query.filter(
+            PointsFlow.create_time >= start_date
+        ).order_by(PointsFlow.create_time.desc()).limit(10).all()
+
+        items = []
+        for r in records:
+            items.append({
+                "time": r.create_time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "type": r.change_type,
+                "points": r.points
+            })
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "items": items
+            }
+        })
+    except Exception as e:
+        print(f"获取积分记录失败：{str(e)}")
+        return jsonify({"success": False, "message": "获取积分记录失败"}), 500
+
+
+@admin_bp.route('/api/withdrawals/pending', methods=['GET'])
+def api_get_pending_withdrawals():
+    """获取待审核的提现申请"""
+    try:
+        from apps.merchants.models import WithdrawalRecord
+
+        pending = WithdrawalRecord.query.filter_by(status=0).all()
+        count = len(pending)
+
+        # 获取最近几个申请的详情
+        items = []
+        for w in pending:
+            items.append({
+                "id": w.id,
+                "withdrawal_no": w.withdrawal_no,
+                "merchantName": w.merchant_username,
+                "merchantId": w.merchant_username,
+                "points": w.points_amount,
+                "amount": float(w.cash_amount),
+                "createTime": w.create_time.strftime("%Y-%m-%d %H:%M") if w.create_time else None
+            })
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "items": items
+            }
+        })
+    except Exception as e:
+        print(f"获取待审核提现失败：{str(e)}")
+        return jsonify({"success": False, "message": "获取提现申请失败"}), 500
+
+
+@admin_bp.route('/api/admin/withdrawals/pending', methods=['GET'])
+def api_admin_get_pending_withdrawals():
+    """获取待审核的提现申请（admin路径）"""
+    return api_get_pending_withdrawals()
+
+
+@admin_bp.route('/api/admin/withdrawals/<int:id>/decide', methods=['POST'])
+def api_admin_decide_withdrawal(id):
+    """审核提现申请"""
+    try:
+        from apps.merchants.models import WithdrawalRecord
+
+        data = request.get_json()
+        approve = data.get("approve", False)
+        reject_reason = data.get("rejectReason", "")
+
+        withdrawal = WithdrawalRecord.query.get(id)
+        if not withdrawal:
+            return jsonify({"success": False, "message": "提现记录不存在！"}), 404
+
+        if withdrawal.status != 0:
+            return jsonify({"success": False, "message": "该提现申请已处理！"}), 400
+
+        withdrawal.status = 1 if approve else 2  # 1-已处理 2-已拒绝
+        # 更新审核时间
+        withdrawal.approve_time = datetime.now()
+
+        if not approve:
+            withdrawal.admin_remark = reject_reason
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "审核成功！",
+            "data": {
+                "approved": approve,
+                "withdrawal_no": withdrawal.withdrawal_no,
+                "merchant_username": withdrawal.merchant_username,
+                "points_amount": withdrawal.points_amount,
+                "cash_amount": float(withdrawal.cash_amount)
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"审核提现失败：{str(e)}")
+        return jsonify({"success": False, "message": "审核失败！"}), 500
+
+
+# 测试页面
+@admin_bp.route('/test_api')
+def test_api():
+    return render_template('administrator/test_admin_api.html')
+
+
+# 简化版管理员页面
+@admin_bp.route('/admin_simple')
+def admin_simple():
+    return render_template('administrator/admin_simple.html')
+
+
+# 清洁版管理员主页
+@admin_bp.route('/admin_clean')
+def admin_clean():
+    return render_template('administrator/admin_clean.html')
+
+
+# 测试提现申请显示
+@admin_bp.route('/test_withdrawal')
+def test_withdrawal():
+    return render_template('administrator/test_withdrawal_display.html')
+
+
+# 管理员主页工作版本
+@admin_bp.route('/admin_working')
+def admin_working():
+    adminname = session.get("adminname")
+    if not adminname:
+        return redirect(url_for("user.index"))
+    return render_template('administrator/admin_working.html')
+
+
