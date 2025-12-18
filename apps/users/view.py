@@ -399,7 +399,482 @@ def get_exchange_orders():
         return jsonify({"error": "兑换记录查询失败，请稍后重试！"}), 500
 
 
+# 用户兑换商品API
+@user_bp.route('/api/orders', methods=['POST'])
+def create_exchange_order():
+    """用户兑换商品创建订单"""
+    # 1. 登录验证
+    username = session.get("username")
+    if not username:
+        return jsonify({"success": False, "message": "用户未登录"}), 401
+
+    try:
+        # 2. 获取请求数据
+        data = request.get_json()
+        if not data or not data.get('productId') or not data.get('address'):
+            return jsonify({"success": False, "message": "参数不完整"}), 400
+
+        product_id = data['productId']
+        address = data['address']
+        quantity = data.get('quantity', 1)  # 默认数量为1
+
+        # 3. 查询商品信息
+        from apps.merchants.models import Goods
+        goods = Goods.query.filter_by(id=product_id, status="on_shelf").first()
+
+        if not goods:
+            return jsonify({"success": False, "message": "商品不存在或已下架"}), 404
+
+        # 4. 检查库存
+        if goods.stock < quantity:
+            return jsonify({"success": False, "message": f"库存不足，当前库存：{goods.stock}"}), 400
+
+        # 5. 查询用户信息
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            return jsonify({"success": False, "message": "用户不存在"}), 404
+
+        # 6. 计算总积分并检查是否足够
+        total_points_needed = goods.need_points * quantity
+        if user.now_points < total_points_needed:
+            return jsonify({"success": False, "message": "积分不足"}), 400
+
+        # 7. 扣除积分、减少库存并创建兑换记录
+        from datetime import datetime
+
+        # 扣除用户积分
+        user.now_points -= total_points_needed
+
+        # 减少商品库存
+        goods.stock -= quantity
+
+        # 创建积分流水记录
+        points_flow = PointsFlow(
+            username=username,
+            change_type="扣除",
+            reason="兑换商品",
+            points=-total_points_needed,  # 负数表示扣除
+            balance=user.now_points,  # 变动后的积分余额
+            goods_id=goods.id,
+            goods_name=goods.goods_name,
+            exchange_status="待发货",
+            create_time=datetime.now()
+        )
+
+        # 同时创建商户订单记录
+        from apps.merchants.models import Order
+        from apps.users.models import Address
+        import uuid
+
+        # 生成订单号
+        order_no = f"EX{datetime.now().strftime('%Y%m%d')}{str(uuid.uuid4())[:8].upper()}"
+
+        # 查找匹配的地址记录
+        address_id = None
+        if address:
+            # 解析地址字符串 "姓名 / 电话 / 详细地址"
+            parts = address.split(' / ')
+            if len(parts) >= 3:
+                name = parts[0]
+                phone = parts[1]
+                detail_address = ' / '.join(parts[2:])
+
+                # 只查找已有地址，不创建新地址
+                existing_address = Address.query.filter_by(
+                    username=username,
+                    name=name,
+                    phone=phone,
+                    detail=detail_address
+                ).first()
+
+                if existing_address:
+                    address_id = existing_address.id
+                else:
+                    # 如果没有找到匹配的地址，不允许兑换
+                    return jsonify({"success": False, "message": "请先在个人中心添加收货地址后再进行兑换"}), 400
+
+        # 创建订单记录
+        order = Order(
+            order_no=order_no,
+            user_username=username,
+            goods_id=goods.id,
+            merchant_username=goods.merchant_username,
+            address_id=address_id,
+            point_amount=total_points_needed,
+            order_status=1,  # 已扣积分
+            pay_time=datetime.now(),
+            create_time=datetime.now()
+        )
+
+        # 保存到数据库
+        db.session.add(points_flow)
+        db.session.add(order)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": f"兑换成功！兑换数量：{quantity}",
+            "data": {
+                "points_flow_id": points_flow.id,
+                "order_id": order.id,
+                "order_no": order_no,
+                "goods_name": goods.goods_name,
+                "quantity": quantity,
+                "points_used": total_points_needed,
+                "remaining_points": user.now_points,
+                "address": address,
+                "merchant_username": goods.merchant_username
+            }
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"[兑换失败] 错误详情：{str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"兑换失败：{str(e)}"}), 500
+
+
+# 用户订单管理API
+@user_bp.route('/api/orders', methods=['GET'])
+def get_user_orders():
+    """获取用户的所有订单"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"success": False, "message": "用户未登录"}), 401
+
+    try:
+        # 查询用户的所有订单
+        from apps.merchants.models import Order
+        orders = Order.query.filter_by(
+            user_username=username,
+            is_delete=0
+        ).order_by(Order.create_time.desc()).all()
+
+        result = []
+        for order in orders:
+            # 查询商品信息
+            goods = Goods.query.filter_by(id=order.goods_id).first()
+
+            # 查询地址信息
+            address_info = "地址信息不完整"
+            if order.address_id:
+                address = Address.query.filter_by(id=order.address_id).first()
+                if address:
+                    # 组合地址信息，如果region为空就不显示
+                    address_parts = [address.name, address.phone]
+                    if address.region:
+                        address_parts.append(address.region)
+                    if address.detail:
+                        address_parts.append(address.detail)
+                    address_info = " / ".join(address_parts)
+
+            # 状态映射
+            status_map = {
+                0: {"code": "pending", "text": "创建中"},
+                1: {"code": "paid", "text": "已支付"},
+                2: {"code": "accepted", "text": "商户已接单"},
+                3: {"code": "shipped", "text": "已发货"},
+                4: {"code": "completed", "text": "已完成"},
+                5: {"code": "cancelled", "text": "已取消"},
+                6: {"code": "refunded", "text": "已退款"}
+            }
+
+            status_info = status_map.get(order.order_status, {"code": "unknown", "text": "未知状态"})
+
+            result.append({
+                "id": order.id,
+                "order_no": order.order_no,
+                "goods_id": order.goods_id,
+                "goods_name": goods.goods_name if goods else "商品已删除",
+                "quantity": 1,  # 兑换商品默认数量为1
+                "point_amount": order.point_amount,
+                "merchant_username": order.merchant_username,
+                "address_info": address_info,
+                "status_code": status_info["code"],
+                "status_text": status_info["text"],
+                "create_time": order.create_time.strftime("%Y-%m-%d %H:%M:%S") if order.create_time else "",
+                "pay_time": order.pay_time.strftime("%Y-%m-%d %H:%M:%S") if order.pay_time else "",
+                "ship_time": order.ship_time.strftime("%Y-%m-%d %H:%M:%S") if order.ship_time else "",
+                "logistics_no": order.logistics_no,
+                "logistics_company": order.logistics_company
+            })
+
+        return jsonify({"success": True, "orders": result}), 200
+
+    except Exception as e:
+        print(f"获取用户订单失败：{str(e)}")
+        return jsonify({"success": False, "message": "获取订单失败"}), 500
+
+
+@user_bp.route('/api/orders/<int:order_id>', methods=['GET'])
+def get_order_detail(order_id):
+    """获取订单详情"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"success": False, "message": "用户未登录"}), 401
+
+    try:
+        from apps.merchants.models import Order
+        order = Order.query.filter_by(
+            id=order_id,
+            user_username=username,
+            is_delete=0
+        ).first()
+
+        if not order:
+            return jsonify({"success": False, "message": "订单不存在"}), 404
+
+        # 查询商品信息
+        goods = Goods.query.filter_by(id=order.goods_id).first()
+
+        # 查询地址信息
+        address_info = "地址信息不完整"
+        if order.address_id:
+            address = Address.query.filter_by(id=order.address_id).first()
+            if address:
+                # 组合地址信息，如果region为空就不显示
+                address_parts = [address.name, address.phone]
+                if address.region:
+                    address_parts.append(address.region)
+                if address.detail:
+                    address_parts.append(address.detail)
+                address_info = " / ".join(address_parts)
+
+        # 状态映射
+        status_map = {
+            0: {"code": "pending", "text": "创建中"},
+            1: {"code": "paid", "text": "已支付"},
+            2: {"code": "accepted", "text": "商户已接单"},
+            3: {"code": "shipped", "text": "已发货"},
+            4: {"code": "completed", "text": "已完成"},
+            5: {"code": "cancelled", "text": "已取消"},
+            6: {"code": "refunded", "text": "已退款"}
+        }
+
+        status_info = status_map.get(order.order_status, {"code": "unknown", "text": "未知状态"})
+
+        result = {
+            "id": order.id,
+            "order_no": order.order_no,
+            "goods_id": order.goods_id,
+            "goods_name": goods.goods_name if goods else "商品已删除",
+            "quantity": 1,
+            "point_amount": order.point_amount,
+            "merchant_username": order.merchant_username,
+            "address_info": address_info,
+            "status_code": status_info["code"],
+            "status_text": status_info["text"],
+            "create_time": order.create_time.strftime("%Y-%m-%d %H:%M:%S") if order.create_time else "",
+            "pay_time": order.pay_time.strftime("%Y-%m-%d %H:%M:%S") if order.pay_time else "",
+            "ship_time": order.ship_time.strftime("%Y-%m-%d %H:%M:%S") if order.ship_time else "",
+            "logistics_no": order.logistics_no,
+            "logistics_company": order.logistics_company
+        }
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        print(f"获取订单详情失败：{str(e)}")
+        return jsonify({"success": False, "message": "获取订单详情失败"}), 500
+
+
+@user_bp.route('/api/orders/<int:order_id>/cancel', methods=['POST'])
+def cancel_order(order_id):
+    """取消订单并退款"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"success": False, "message": "用户未登录"}), 401
+
+    try:
+        from apps.merchants.models import Order
+        order = Order.query.filter_by(
+            id=order_id,
+            user_username=username,
+            is_delete=0
+        ).first()
+
+        if not order:
+            return jsonify({"success": False, "message": "订单不存在"}), 404
+
+        # 检查是否可以取消
+        if order.order_status not in [0, 1]:  # 只能取消"创建中"或"已支付"的订单
+            return jsonify({"success": False, "message": "该订单状态不允许取消"}), 400
+
+        from datetime import datetime
+
+        # 更新订单状态
+        order.order_status = 5  # 已取消
+        order.cancel_time = datetime.now()
+        order.cancel_reason = "用户主动取消"
+
+        # 退还用户积分
+        user = User.query.filter_by(username=username).first()
+        if user:
+            user.now_points += order.point_amount
+            user_balance = user.now_points
+        else:
+            user_balance = 0
+
+        # 创建积分退款流水（安全处理商品可能被删除的情况）
+        goods = Goods.query.filter_by(id=order.goods_id).first()
+        goods_name = goods.goods_name if goods else "已删除商品"
+
+        refund_flow = PointsFlow(
+            username=username,
+            change_type="获得",
+            reason="订单取消退款",
+            points=order.point_amount,
+            balance=user_balance,
+            goods_id=order.goods_id,
+            goods_name=f"退款：{goods_name}",
+            exchange_status="已退款",
+            create_time=datetime.now()
+        )
+
+        # 恢复商品库存
+        if goods:
+            goods.stock += 1
+
+        # 保存到数据库
+        db.session.add(refund_flow)
+        db.session.commit()
+
+        return jsonify({"success": True, "message": "订单已取消，积分已退还"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"取消订单失败：{str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"取消订单失败：{str(e)}"}), 500
+
+
+@user_bp.route('/api/orders/<int:order_id>/refund', methods=['POST'])
+def request_refund(order_id):
+    """申请退款"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"success": False, "message": "用户未登录"}), 401
+
+    try:
+        from apps.merchants.models import Order
+        order = Order.query.filter_by(
+            id=order_id,
+            user_username=username,
+            is_delete=0
+        ).first()
+
+        if not order:
+            return jsonify({"success": False, "message": "订单不存在"}), 404
+
+        # 检查是否可以申请退款
+        if order.order_status not in [2, 3]:  # 只能对"已接单"或"已发货"的订单申请退款
+            return jsonify({"success": False, "message": "该订单状态不允许申请退款"}), 400
+
+        # 获取退款原因
+        data = request.get_json()
+        refund_reason = data.get('reason', '用户申请退款') if data else '用户申请退款'
+
+        from datetime import datetime
+
+        # 更新订单状态为退款申请中
+        order.order_status = 6  # 已退款
+        order.cancel_time = datetime.now()
+        order.cancel_reason = refund_reason
+        order.remark = f"退款原因: {refund_reason}"
+
+        # 退还用户积分
+        user = User.query.filter_by(username=username).first()
+        if user:
+            user.now_points += order.point_amount
+            user_balance = user.now_points
+        else:
+            user_balance = 0
+
+        # 创建积分退款流水（安全处理商品可能被删除的情况）
+        goods = Goods.query.filter_by(id=order.goods_id).first()
+        goods_name = goods.goods_name if goods else "已删除商品"
+
+        refund_flow = PointsFlow(
+            username=username,
+            change_type="获得",
+            reason="订单退款",
+            points=order.point_amount,
+            balance=user_balance,
+            goods_id=order.goods_id,
+            goods_name=f"退款：{goods_name}",
+            exchange_status="已退款",
+            create_time=datetime.now()
+        )
+
+        # 恢复商品库存
+        if goods:
+            goods.stock += 1
+
+        # 保存到数据库
+        db.session.add(refund_flow)
+        db.session.commit()
+
+        return jsonify({"success": True, "message": f"退款已处理，原因：{refund_reason}"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"申请退款失败：{str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"申请退款失败：{str(e)}"}), 500
+
+
+@user_bp.route('/api/orders/<int:order_id>/receive', methods=['POST'])
+def confirm_receive(order_id):
+    """确认收货"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"success": False, "message": "用户未登录"}), 401
+
+    try:
+        from apps.merchants.models import Order
+        order = Order.query.filter_by(
+            id=order_id,
+            user_username=username,
+            is_delete=0
+        ).first()
+
+        if not order:
+            return jsonify({"success": False, "message": "订单不存在"}), 404
+
+        # 检查是否可以确认收货
+        if order.order_status != 3:  # 只能对"已发货"的订单确认收货
+            return jsonify({"success": False, "message": "该订单状态不允许确认收货"}), 400
+
+        from datetime import datetime
+
+        # 更新订单状态
+        order.order_status = 4  # 已完成
+        order.finish_time = datetime.now()
+
+        db.session.commit()
+
+        return jsonify({"success": True, "message": "已确认收货，订单完成"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"确认收货失败：{str(e)}")
+        return jsonify({"success": False, "message": "确认收货失败"}), 500
+
+
 # %%收货地址
+# 用户订单管理页面
+@user_bp.route('/user_orders_enhanced', methods=['GET'])
+def user_orders_enhanced():
+    """用户订单管理页面"""
+    username = session.get("username")
+    if not username:
+        return redirect(url_for("user.login"))
+    return render_template('users/user_orders_enhanced.html')
+
+
 # 用户收货地址
 @user_bp.route('/user_address', methods=['GET', 'POST'])
 def user_address():
@@ -487,14 +962,32 @@ def delete_address(id):
     if not address:
         return jsonify({"error": "该地址不存在或无删除权限！"}), 404
 
-    # 3. 删除地址
+    # 3. 硬删除地址（即使被订单引用也删除）
     try:
+        from apps.merchants.models import Order
+
+        # 查找所有引用该地址的订单
+        orders_with_address = Order.query.filter_by(
+            address_id=id,
+            is_delete=0
+        ).all()
+
+        # 将引用该地址的订单的address_id设为null（解除外键约束）
+        for order in orders_with_address:
+            order.address_id = None
+
+        # 删除地址
         db.session.delete(address)
         db.session.commit()
-        return jsonify({"message": "地址删除成功！"}), 200
+
+        message = f"地址删除成功！已解除 {len(orders_with_address)} 个订单的地址引用。"
+        return jsonify({"message": message}), 200
+
     except Exception as e:
         db.session.rollback()
         print(f"删除地址失败：{str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": "删除地址失败，请稍后重试！"}), 500
 
 

@@ -561,16 +561,26 @@
       }
 
       try {
-        // 调用兑换接口
-        const response = await fetch('/user/exchange', {
+        // 获取选中的地址信息
+        const selectedAddress = userAddresses.find(addr => addr.id === selectedAddressId);
+        if (!selectedAddress) {
+          showToast('收货地址信息错误', 'error');
+          return;
+        }
+
+        // 构造地址字符串
+        const addressString = `${selectedAddress.name} / ${selectedAddress.phone} / ${selectedAddress.region} ${selectedAddress.detail}`;
+
+        // 调用我们创建的兑换接口
+        const response = await fetch('/user/api/orders', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            goods_id: productId,
-            quantity: exchangeQuantity,
-            address_id: selectedAddressId
+            productId: productId,
+            address: addressString,
+            quantity: exchangeQuantity
           })
         });
 
@@ -584,7 +594,7 @@
           await fetchUserPoints();
           await fetchProducts();
         } else {
-          showToast(result.error || '兑换失败', 'error');
+          showToast(result.message || '兑换失败', 'error');
         }
       } catch (error) {
         console.error('兑换失败:', error);

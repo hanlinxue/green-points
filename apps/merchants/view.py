@@ -453,7 +453,7 @@ def get_merchant_orders():
                 3: "已发货",
                 4: "完成",
                 5: "取消",
-                6: "售后中"
+                6: "已退款"
             }
 
             result.append({

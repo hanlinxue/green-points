@@ -1,0 +1,795 @@
+<!-- 用户订单管理页面 -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>我的订单 - 绿色出行商城</title>
+  <link rel="stylesheet" href="../../static/css/style.css">
+  <style>
+    /* 订单状态样式 */
+    .status-pending { background-color: #ffc107; color: #856404; }
+    .status-paid { background-color: #17a2b8; color: white; }
+    .status-accepted { background-color: #28a745; color: white; }
+    .status-shipped { background-color: #6f42c1; color: white; }
+    .status-completed { background-color: #28a745; color: white; }
+    .status-cancelled { background-color: #dc3545; color: white; }
+    .status-refunded { background-color: #fd7e14; color: white; }
+
+    /* 订单卡片样式 */
+    .order-card {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      transition: var(--transition);
+    }
+
+    .order-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+
+    .order-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .order-number {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .order-time {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .order-content {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 15px;
+    }
+
+    .order-goods-info {
+      flex: 1;
+    }
+
+    .goods-name {
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .goods-meta {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .order-address {
+      flex: 1;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .order-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .order-points {
+      font-weight: 600;
+      color: var(--brand-dark);
+    }
+
+    .order-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .order-actions .btn {
+      padding: 6px 12px;
+      font-size: 14px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .filter-tab {
+      padding: 10px 20px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+      color: var(--muted);
+      border-bottom: 3px solid transparent;
+      transition: var(--transition);
+    }
+
+    .filter-tab.active {
+      color: var(--brand);
+      border-bottom-color: var(--brand);
+    }
+
+    .filter-tab:hover {
+      color: var(--brand-dark);
+    }
+
+    /* 模态框样式 */
+    .modal {
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      display: none;
+    }
+
+    .modal-content {
+      background-color: #fefefe;
+      margin: 5% auto;
+      padding: 0;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 800px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      animation: modalopen 0.3s ease;
+    }
+
+    @keyframes modalopen {
+      from {opacity: 0; transform: translateY(-20px);}
+      to {opacity: 1; transform: translateY(0);}
+    }
+
+    .modal-header {
+      padding: 20px 25px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .close {
+      color: #aaa;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .close:hover {
+      color: #000;
+    }
+
+    .modal-body {
+      padding: 25px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    .modal-footer {
+      padding: 20px 25px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .modal-body .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 25px;
+    }
+
+    .modal-body h4 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: var(--text);
+    }
+
+    .modal-body p {
+      margin: 8px 0;
+      line-height: 1.5;
+    }
+
+    .modal-body strong {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* 退款原因选项样式 */
+    .reason-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .reason-option {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: var(--transition);
+      background: #fff;
+    }
+
+    .reason-option:hover {
+      border-color: var(--brand);
+      background: var(--brand-light);
+    }
+
+    .reason-option input[type="radio"] {
+      margin-right: 12px;
+      cursor: pointer;
+    }
+
+    .reason-option span {
+      font-size: 15px;
+      color: var(--text);
+    }
+
+    .reason-option input[type="radio"]:checked + span {
+      font-weight: 600;
+      color: var(--brand);
+    }
+
+    .reason-option input[type="radio"]:checked {
+      accent-color: var(--brand);
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .order-content {
+        flex-direction: column;
+      }
+
+      .order-footer {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .filter-tabs {
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+    }
+  </style>
+</head>
+
+<body onload="initUserOrders()">
+
+<div class="dashboard">
+
+  <nav class="dash-nav">
+    <div class="brand">绿色出行商城</div>
+    <a href="{{ url_for('user.user_index') }}">全部商品</a>
+    <a href="{{ url_for('user.user_trip') }}">提交出行</a>
+    <a href="{{ url_for('user.user_profile') }}">个人中心</a>
+    <a href="{{ url_for('user.user_out') }}">退出登录</a>
+  </nav>
+
+  <section class="dash-main">
+
+    <div class="dash-header">
+      <div>
+        <h1>我的订单</h1>
+        <p>查看订单详情，管理订单状态，支持取消、退款和确认收货。</p>
+      </div>
+    </div>
+
+    <!-- 筛选标签 -->
+    <div class="panel hover-lift">
+      <div class="panel-header">
+        <h2>订单筛选</h2>
+      </div>
+      <div class="filter-tabs">
+        <button class="filter-tab active" onclick="filterOrders('all')">全部订单</button>
+        <button class="filter-tab" onclick="filterOrders('pending')">待接单</button>
+        <button class="filter-tab" onclick="filterOrders('accepted')">已接单</button>
+        <button class="filter-tab" onclick="filterOrders('shipped')">已发货</button>
+        <button class="filter-tab" onclick="filterOrders('completed')">已完成</button>
+        <button class="filter-tab" onclick="filterOrders('cancelled')">已取消</button>
+      </div>
+    </div>
+
+    <!-- 订单列表 -->
+    <div class="panel hover-lift">
+      <div class="panel-header">
+        <h2>订单列表</h2>
+        <button class="btn small" onclick="refreshOrders()">刷新</button>
+      </div>
+      <div id="ordersList">
+        <div class="empty-state">
+          <p>正在加载订单...</p>
+        </div>
+      </div>
+    </div>
+
+  </section>
+</div>
+
+<!-- 订单详情模态框 -->
+<div id="orderDetailModal" class="modal" style="display: none;">
+  <div class="modal-content" style="max-width: 800px;">
+    <div class="modal-header">
+      <h3>订单详情</h3>
+      <span class="close" onclick="closeOrderDetail()">&times;</span>
+    </div>
+    <div class="modal-body" id="orderDetailContent">
+      <!-- 订单详情将动态填充 -->
+    </div>
+    <div class="modal-footer" id="orderDetailActions">
+      <!-- 操作按钮将动态填充 -->
+    </div>
+  </div>
+</div>
+
+<!-- 确认操作模态框 -->
+<div id="confirmModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="confirmTitle">确认操作</h3>
+      <span class="close" onclick="closeConfirm()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <p id="confirmMessage">确定要执行此操作吗？</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeConfirm()">取消</button>
+      <button class="btn" id="confirmButton" onclick="executeConfirm()">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 退款原因模态框 -->
+<div id="refundReasonModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>选择退款原因</h3>
+      <span class="close" onclick="closeRefundReason()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; margin-bottom: 10px; font-weight: 600;">请选择退款原因：</label>
+        <div class="reason-options">
+          <label class="reason-option">
+            <input type="radio" name="refundReason" value="不想要了" checked>
+            <span>不想要了</span>
+          </label>
+          <label class="reason-option">
+            <input type="radio" name="refundReason" value="买错了">
+            <span>买错了</span>
+          </label>
+          <label class="reason-option">
+            <input type="radio" name="refundReason" value="商品质量问题">
+            <span>商品质量问题</span>
+          </label>
+          <label class="reason-option">
+            <input type="radio" name="refundReason" value="商品不符合预期">
+            <span>商品不符合预期</span>
+          </label>
+          <label class="reason-option">
+            <input type="radio" name="refundReason" value="其他原因">
+            <span>其他原因</span>
+          </label>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 10px;">
+        <label style="display: block; margin-bottom: 8px; font-weight: 600;">详细说明（可选）：</label>
+        <textarea id="customReason"
+                  class="input"
+                  rows="3"
+                  placeholder="请详细描述您的退款原因..."
+                  style="width: 100%; resize: vertical;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeRefundReason()">取消</button>
+      <button class="btn" onclick="submitRefundReason()">提交退款申请</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../static/js/script.js"></script>
+<script>
+  let allOrders = [];
+  let currentFilter = 'all';
+  let currentOrderId = null;
+  let currentAction = null;
+
+  // 页面初始化
+  function initUserOrders() {
+    loadOrders();
+  }
+
+  // 加载订单列表
+  function loadOrders() {
+    return fetch('/user/api/orders').then(response => {
+      if (response.ok) {
+        return response.json();
+      } else {
+        throw new Error('获取订单失败');
+      }
+    }).then(data => {
+      allOrders = data.orders || [];
+      displayOrders();
+    }).catch(error => {
+      console.error('加载订单失败:', error);
+      document.getElementById('ordersList').innerHTML =
+        '<div class="empty-state"><p>加载订单失败，请稍后重试</p></div>';
+    });
+  }
+
+  // 显示订单列表
+  function displayOrders() {
+    const container = document.getElementById('ordersList');
+
+    // 筛选订单
+    let filteredOrders = allOrders;
+    if (currentFilter !== 'all') {
+      filteredOrders = allOrders.filter(order => {
+        return order.status_code === currentFilter;
+      });
+    }
+
+    if (filteredOrders.length === 0) {
+      container.innerHTML = '<div class="empty-state"><p>暂无相关订单</p></div>';
+      return;
+    }
+
+    let html = '';
+    filteredOrders.forEach(order => {
+      html += createOrderCard(order);
+    });
+
+    container.innerHTML = html;
+  }
+
+  // 创建订单卡片HTML
+  function createOrderCard(order) {
+    const statusClass = `status-${order.status_code}`;
+    const canCancel = ['pending', 'paid'].includes(order.status_code);
+    const canConfirm = order.status_code === 'shipped';
+    const canRefund = ['accepted', 'shipped'].includes(order.status_code);
+
+    return `
+      <div class="order-card">
+        <div class="order-header">
+          <div class="order-number">订单号: ${order.order_no}</div>
+          <div class="order-time">${order.create_time}</div>
+        </div>
+
+        <div class="order-content">
+          <div class="order-goods-info">
+            <div class="goods-name">${order.goods_name}</div>
+            <div class="goods-meta">
+              数量: ${order.quantity || 1} |
+              积分: ${order.point_amount} |
+              商户: ${order.merchant_username}
+            </div>
+          </div>
+
+          <div class="order-address">
+            <div style="font-weight: 600; margin-bottom: 5px;">收货地址</div>
+            ${order.address_info || '地址信息加载中...'}
+          </div>
+        </div>
+
+        <div class="order-footer">
+          <div class="order-points">
+            <span class="pill ${statusClass}">${order.status_text}</span>
+          </div>
+          <div class="order-actions">
+            <button class="btn small" onclick="showOrderDetail(${order.id})">详情</button>
+            ${canCancel ? `<button class="btn small danger" onclick="confirmCancel(${order.id})">取消订单</button>` : ''}
+            ${canRefund ? `<button class="btn small danger" onclick="confirmRefund(${order.id})">申请退款</button>` : ''}
+            ${canConfirm ? `<button class="btn small" onclick="confirmReceive(${order.id})">确认收货</button>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 筛选订单
+  function filterOrders(filter) {
+    currentFilter = filter;
+
+    // 更新标签状态
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+      tab.classList.remove('active');
+    });
+    event.target.classList.add('active');
+
+    displayOrders();
+  }
+
+  // 刷新订单列表
+  function refreshOrders() {
+    const refreshBtn = document.querySelector('.panel-header .btn');
+    const originalText = refreshBtn.textContent;
+
+    // 显示加载状态
+    refreshBtn.textContent = '刷新中...';
+    refreshBtn.disabled = true;
+
+    // 重新加载订单
+    loadOrders().finally(() => {
+      // 恢复按钮状态
+      refreshBtn.textContent = originalText;
+      refreshBtn.disabled = false;
+    });
+  }
+
+  // 显示订单详情
+  async function showOrderDetail(orderId) {
+    try {
+      const response = await fetch(`/user/api/orders/${orderId}`);
+      if (response.ok) {
+        const result = await response.json();
+
+        // 检查返回的数据结构
+        let order;
+        if (result.success && result.orders && result.orders.length > 0) {
+          order = result.orders[0];
+        } else if (result.id) {
+          order = result;
+        } else {
+          throw new Error('订单数据格式错误');
+        }
+
+        console.log('订单详情数据:', order);
+        displayOrderDetail(order);
+        document.getElementById('orderDetailModal').style.display = 'block';
+      } else {
+        const errorText = await response.text();
+        console.error('获取订单详情失败:', errorText);
+        alert('获取订单详情失败: ' + errorText);
+      }
+    } catch (error) {
+      console.error('获取订单详情失败:', error);
+      alert('获取订单详情失败: ' + error.message);
+    }
+  }
+
+  // 显示订单详情内容
+  function displayOrderDetail(order) {
+    const content = document.getElementById('orderDetailContent');
+    const actions = document.getElementById('orderDetailActions');
+
+    // 安全获取订单数据
+    const safeOrder = {
+      order_no: order.order_no || '未知',
+      create_time: order.create_time || '未知',
+      pay_time: order.pay_time || '未支付',
+      status_code: order.status_code || 'unknown',
+      status_text: order.status_text || '未知状态',
+      goods_name: order.goods_name || '商品已删除',
+      quantity: order.quantity || 1,
+      point_amount: order.point_amount || 0,
+      merchant_username: order.merchant_username || '未知',
+      address_info: order.address_info || '地址信息不完整',
+      logistics_no: order.logistics_no,
+      logistics_company: order.logistics_company,
+      id: order.id || 0
+    };
+
+    content.innerHTML = `
+      <div class="grid">
+        <div>
+          <h4>订单信息</h4>
+          <p><strong>订单号:</strong> ${safeOrder.order_no}</p>
+          <p><strong>下单时间:</strong> ${safeOrder.create_time}</p>
+          <p><strong>支付时间:</strong> ${safeOrder.pay_time}</p>
+          <p><strong>订单状态:</strong> <span class="pill status-${safeOrder.status_code}">${safeOrder.status_text}</span></p>
+        </div>
+
+        <div>
+          <h4>商品信息</h4>
+          <p><strong>商品名称:</strong> ${safeOrder.goods_name}</p>
+          <p><strong>数量:</strong> ${safeOrder.quantity}</p>
+          <p><strong>积分:</strong> ${safeOrder.point_amount}</p>
+          <p><strong>商户:</strong> ${safeOrder.merchant_username}</p>
+        </div>
+      </div>
+
+      <div>
+        <h4>收货信息</h4>
+        <p>${safeOrder.address_info}</p>
+      </div>
+
+      ${safeOrder.logistics_no ? `
+        <div>
+          <h4>物流信息</h4>
+          <p><strong>物流单号:</strong> ${safeOrder.logistics_no}</p>
+          <p><strong>物流公司:</strong> ${safeOrder.logistics_company || '未知'}</p>
+        </div>
+      ` : ''}
+    `;
+
+    // 根据订单状态显示操作按钮
+    const canCancel = ['pending', 'paid'].includes(safeOrder.status_code);
+    const canConfirm = safeOrder.status_code === 'shipped';
+    const canRefund = ['accepted', 'shipped'].includes(safeOrder.status_code);
+
+    let actionButtons = '';
+    if (canCancel) {
+      actionButtons += `<button class="btn danger" onclick="confirmCancel(${safeOrder.id})">取消订单</button>`;
+    }
+    if (canRefund) {
+      actionButtons += `<button class="btn danger" onclick="confirmRefund(${safeOrder.id})">申请退款</button>`;
+    }
+    if (canConfirm) {
+      actionButtons += `<button class="btn" onclick="confirmReceive(${safeOrder.id})">确认收货</button>`;
+    }
+
+    actions.innerHTML = actionButtons || '';
+  }
+
+  // 关闭订单详情
+  function closeOrderDetail() {
+    document.getElementById('orderDetailModal').style.display = 'none';
+  }
+
+  // 确认取消订单
+  function confirmCancel(orderId) {
+    currentOrderId = orderId;
+    currentAction = 'cancel';
+    document.getElementById('confirmTitle').textContent = '取消订单';
+    document.getElementById('confirmMessage').textContent = '确定要取消这个订单吗？取消后积分将原路退回。';
+    document.getElementById('confirmModal').style.display = 'block';
+  }
+
+  // 确认申请退款
+  function confirmRefund(orderId) {
+    currentOrderId = orderId;
+    currentAction = 'refund';
+
+    // 显示退款原因选择模态框
+    document.getElementById('refundReasonModal').style.display = 'block';
+
+    // 重置表单
+    document.querySelector('input[name="refundReason"][value="不想要了"]').checked = true;
+    document.getElementById('customReason').value = '';
+  }
+
+  // 关闭退款原因模态框
+  function closeRefundReason() {
+    document.getElementById('refundReasonModal').style.display = 'none';
+  }
+
+  // 提交退款原因
+  async function submitRefundReason() {
+    // 获取选中的退款原因
+    const selectedReason = document.querySelector('input[name="refundReason"]:checked')?.value || '不想要了';
+    const customReason = document.getElementById('customReason').value.trim();
+
+    // 组合完整的退款原因
+    let refundReason = selectedReason;
+    if (customReason) {
+      refundReason += ': ' + customReason;
+    }
+
+    try {
+      const response = await fetch(`/user/api/orders/${currentOrderId}/refund`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reason: refundReason
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        alert(result.message);
+        closeRefundReason();
+        closeOrderDetail();
+        await loadOrders(); // 刷新订单列表
+      } else {
+        alert(result.message || '退款申请失败');
+      }
+    } catch (error) {
+      console.error('申请退款失败:', error);
+      alert('退款申请失败，请稍后重试');
+    }
+  }
+
+  // 确认收货
+  function confirmReceive(orderId) {
+    currentOrderId = orderId;
+    currentAction = 'receive';
+    document.getElementById('confirmTitle').textContent = '确认收货';
+    document.getElementById('confirmMessage').textContent = '确定已收到商品吗？确认后订单将完成。';
+    document.getElementById('confirmModal').style.display = 'block';
+  }
+
+  // 关闭确认框
+  function closeConfirm() {
+    document.getElementById('confirmModal').style.display = 'none';
+    currentOrderId = null;
+    currentAction = null;
+  }
+
+  // 执行确认操作
+  async function executeConfirm() {
+    if (!currentOrderId || !currentAction) return;
+
+    try {
+      // 对于取消订单，直接调用取消API
+      if (currentAction === 'cancel') {
+        const response = await fetch(`/user/api/orders/${currentOrderId}/cancel`, { method: 'POST' });
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          alert(result.message || '订单已取消');
+          closeConfirm();
+          closeOrderDetail();
+          await loadOrders(); // 刷新订单列表
+        } else {
+          alert(result.message || '取消订单失败');
+        }
+        return;
+      }
+
+      // 其他操作使用通用的确认逻辑
+      closeConfirm();
+      closeOrderDetail();
+      await loadOrders(); // 刷新订单列表
+
+    } catch (error) {
+      console.error('操作失败:', error);
+      alert('操作失败，请稍后重试');
+    }
+  }
+
+  // 点击模态框外部关闭
+  window.onclick = function(event) {
+    const orderModal = document.getElementById('orderDetailModal');
+    const confirmModal = document.getElementById('confirmModal');
+    const refundModal = document.getElementById('refundReasonModal');
+
+    if (event.target === orderModal) {
+      closeOrderDetail();
+    }
+    if (event.target === confirmModal) {
+      closeConfirm();
+    }
+    if (event.target === refundModal) {
+      closeRefundReason();
+    }
+  }
+</script>
+
+</body>
+</html>

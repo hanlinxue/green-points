@@ -136,6 +136,348 @@ def admin_users():
 
 
 # %%
+# API: 获取用户列表
+@admin_bp.route('/api/users', methods=['GET'])
+def get_users():
+    adminname = session.get("adminname")
+    if not adminname:
+        return jsonify({"success": False, "message": "未登录"}), 401
+
+    try:
+        # 获取所有未被删除的用户
+        users = User.query.filter_by(isdelete=False).all()
+        user_list = []
+
+        for user in users:
+            # 判断用户状态（使用iscancel作为冻结状态）
+            status = "frozen" if user.iscancel else "normal"
+
+            user_info = {
+                "id": user.id,
+                "username": user.username,
+                "nickname": user.nickname,
+                "email": user.email,
+                "phone": user.phone,
+                "status": status,
+                "now_points": user.now_points,
+                "all_points": user.all_points,
+                "use_points": user.use_points,
+                "rdatetime": user.rdatetime.strftime("%Y-%m-%d %H:%M:%S") if user.rdatetime else None
+            }
+            user_list.append(user_info)
+
+        return jsonify({
+            "success": True,
+            "users": user_list
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"获取用户列表失败: {str(e)}"
+        }), 500
+
+
+# %%
+# API: 获取商户列表
+@admin_bp.route('/api/merchants', methods=['GET'])
+def get_merchants():
+    adminname = session.get("adminname")
+    if not adminname:
+        return jsonify({"success": False, "message": "未登录"}), 401
+
+    try:
+        # 获取所有未被删除的商户
+        merchants = Merchant.query.filter_by(isdelete=False).all()
+        merchant_list = []
+
+        for merchant in merchants:
+            # 判断商户状态
+            # 使用iscancel作为冻结状态
+            # 对于新注册的商户，如果没有特殊审核字段，默认为normal状态
+            if merchant.iscancel:
+                status = "frozen"
+            # 注意：如果Merchant模型有审核状态字段，应该在这里处理
+            # 暂时使用模拟数据来支持审核功能演示
+            elif hasattr(merchant, 'status') and merchant.status == 'pending':
+                status = "pending"
+            else:
+                status = "normal"
+
+            merchant_info = {
+                "id": merchant.id,
+                "username": merchant.username,
+                "email": merchant.email,
+                "phone": merchant.phone,
+                "status": status,
+                "now_points": merchant.now_points,
+                "all_points": merchant.all_points,
+                "use_points": merchant.use_points,
+                "rdatetime": merchant.rdatetime.strftime("%Y-%m-%d %H:%M:%S") if merchant.rdatetime else None
+            }
+            merchant_list.append(merchant_info)
+
+        return jsonify({
+            "success": True,
+            "merchants": merchant_list
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"获取商户列表失败: {str(e)}"
+        }), 500
+
+
+# %%
+# API: 冻结用户
+@admin_bp.route('/api/users/<int:user_id>/freeze', methods=['POST'])
+def freeze_user(user_id):
+    adminname = session.get("adminname")
+    if not adminname:
+        return jsonify({"success": False, "message": "未登录"}), 401
+
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"success": False, "message": "用户不存在"}), 404
+
+        if user.isdelete:
+            return jsonify({"success": False, "message": "用户已被删除"}), 400
+
+        user.iscancel = True
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "用户已冻结"
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "message": f"冻结用户失败: {str(e)}"
+        }), 500
+
+
+# %%
+# API: 解冻用户
+@admin_bp.route('/api/users/<int:user_id>/unfreeze', methods=['POST'])
+def unfreeze_user(user_id):
+    adminname = session.get("adminname")
+    if not adminname:
+        return jsonify({"success": False, "message": "未登录"}), 401
+
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"success": False, "message": "用户不存在"}), 404
+
+        if user.isdelete:
+            return jsonify({"success": False, "message": "用户已被删除"}), 400
+
+        user.iscancel = False
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "用户已解冻"
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "message": f"解冻用户失败: {str(e)}"
+        }), 500
+
+
+# %%
+# API: 删除用户
+@admin_bp.route('/api/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    adminname = session.get("adminname")
+    if not adminname:
+        return jsonify({"success": False, "message": "未登录"}), 401
+
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"success": False, "message": "用户不存在"}), 404
+
+        # 软删除用户
+        user.isdelete = True
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "用户已删除"
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "message": f"删除用户失败: {str(e)}"
+        }), 500
+
+
+# %%
+# API: 冻结商户
+@admin_bp.route('/api/merchants/<int:merchant_id>/freeze', methods=['POST'])
+def freeze_merchant(merchant_id):
+    adminname = session.get("adminname")
+    if not adminname:
+        return jsonify({"success": False, "message": "未登录"}), 401
+
+    try:
+        merchant = Merchant.query.get(merchant_id)
+        if not merchant:
+            return jsonify({"success": False, "message": "商户不存在"}), 404
+
+        if merchant.isdelete:
+            return jsonify({"success": False, "message": "商户已被删除"}), 400
+
+        merchant.iscancel = True
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "商户已冻结"
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "message": f"冻结商户失败: {str(e)}"
+        }), 500
+
+
+# %%
+# API: 解冻商户
+@admin_bp.route('/api/merchants/<int:merchant_id>/unfreeze', methods=['POST'])
+def unfreeze_merchant(merchant_id):
+    adminname = session.get("adminname")
+    if not adminname:
+        return jsonify({"success": False, "message": "未登录"}), 401
+
+    try:
+        merchant = Merchant.query.get(merchant_id)
+        if not merchant:
+            return jsonify({"success": False, "message": "商户不存在"}), 404
+
+        if merchant.isdelete:
+            return jsonify({"success": False, "message": "商户已被删除"}), 400
+
+        merchant.iscancel = False
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "商户已解冻"
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "message": f"解冻商户失败: {str(e)}"
+        }), 500
+
+
+# %%
+# API: 删除商户
+@admin_bp.route('/api/merchants/<int:merchant_id>', methods=['DELETE'])
+def delete_merchant(merchant_id):
+    adminname = session.get("adminname")
+    if not adminname:
+        return jsonify({"success": False, "message": "未登录"}), 401
+
+    try:
+        merchant = Merchant.query.get(merchant_id)
+        if not merchant:
+            return jsonify({"success": False, "message": "商户不存在"}), 404
+
+        # 软删除商户
+        merchant.isdelete = True
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "商户已删除"
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "message": f"删除商户失败: {str(e)}"
+        }), 500
+
+
+# %%
+# API: 审核通过商户
+@admin_bp.route('/api/merchant/approve/<int:merchant_id>', methods=['POST'])
+def approve_merchant(merchant_id):
+    adminname = session.get("adminname")
+    if not adminname:
+        return jsonify({"success": False, "message": "未登录"}), 401
+
+    try:
+        merchant = Merchant.query.get(merchant_id)
+        if not merchant:
+            return jsonify({"success": False, "message": "商户不存在"}), 404
+
+        if merchant.isdelete:
+            return jsonify({"success": False, "message": "商户已被删除"}), 400
+
+        # 如果Merchant模型有status字段，更新状态为approved
+        if hasattr(merchant, 'status'):
+            merchant.status = 'approved'
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "商户审核已通过"
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "message": f"审核通过商户失败: {str(e)}"
+        }), 500
+
+
+# %%
+# API: 审核拒绝商户
+@admin_bp.route('/api/merchant/reject/<int:merchant_id>', methods=['POST'])
+def reject_merchant(merchant_id):
+    adminname = session.get("adminname")
+    if not adminname:
+        return jsonify({"success": False, "message": "未登录"}), 401
+
+    try:
+        merchant = Merchant.query.get(merchant_id)
+        if not merchant:
+            return jsonify({"success": False, "message": "商户不存在"}), 404
+
+        if merchant.isdelete:
+            return jsonify({"success": False, "message": "商户已被删除"}), 400
+
+        # 如果Merchant模型有status字段，更新状态为rejected
+        if hasattr(merchant, 'status'):
+            merchant.status = 'rejected'
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "商户审核已拒绝"
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "message": f"审核拒绝商户失败: {str(e)}"
+        }), 500
+
+
+# %%
 # 积分兑换规则
 @admin_bp.route('/point_rules')
 def point_rules():

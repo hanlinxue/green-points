@@ -233,22 +233,44 @@
 
     // 删除地址
     function deleteAddress(id) {
-      if (!confirm("确定要删除这个地址吗？")) return;
+      if (!confirm("确定要删除这个地址吗？\n\n⚠️ 注意：如果该地址被订单引用，系统将自动解除订单与该地址的关联。")) return;
       fetch(`/user/user_profile/user_address/delete/${id}`, { method: "POST" })
-        .then(() => loadAddressList())
+        .then(response => {
+          if (!response.ok) {
+            return response.json().then(data => {
+              throw new Error(data.error || "删除失败");
+            });
+          }
+          return response.json();
+        })
+        .then(data => {
+          alert(data.message || "删除成功");
+          loadAddressList();
+        })
         .catch(err => { // 新增异常捕获
           console.error("删除地址失败：", err);
-          alert("删除地址失败，请稍后重试！");
+          alert(err.message || "删除地址失败，请稍后重试！");
         });
     }
 
     // 设置为默认地址
     function setDefault(id) {
       fetch(`/user/user_profile/user_address/set_default/${id}`, { method: "POST" })
-        .then(() => loadAddressList())
+        .then(response => {
+          if (!response.ok) {
+            return response.json().then(data => {
+              throw new Error(data.error || "设置默认失败");
+            });
+          }
+          return response.json();
+        })
+        .then(data => {
+          alert(data.message || "设置默认成功");
+          loadAddressList();
+        })
         .catch(err => { // 新增异常捕获
           console.error("设为默认地址失败：", err);
-          alert("设为默认地址失败，请稍后重试！");
+          alert(err.message || "设为默认地址失败，请稍后重试！");
         });
     }
 

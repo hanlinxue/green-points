@@ -151,7 +151,7 @@ async function fetchProducts() {
 async function redeemProduct(prodId) {
   const addr = prompt("请输入收货地址（示例：张三 / 电话 / 详细地址）");
   if (!addr) return alert("请填写地址");
-  const res = await apiFetch("/api/orders", { method: "POST", body: JSON.stringify({ productId: prodId, address: addr })});
+  const res = await apiFetch("/user/api/orders", { method: "POST", body: JSON.stringify({ productId: prodId, address: addr })});
   alert(res.data?.message || (res.ok ? "下单成功" : "兑换失败"));
   if (res.ok) await fetchProducts();
 }
@@ -346,7 +346,7 @@ function setText(elementId, text) {
 }
 
 async function fetchWithdrawalRequests() {
-  const res = await apiFetch("/api/admin/withdrawals/pending");
+  const res = await apiFetch("/admin/api/admin/withdrawals/pending");
   const el = document.getElementById("withdrawalRequests");
   if (!el) return;
   el.innerHTML = "";
@@ -362,12 +362,12 @@ async function fetchWithdrawalRequests() {
 }
 async function adminDecideWithdrawal(id, approve) {
   if (!confirm(approve ? "批准提现？" : "拒绝提现？")) return;
-  const res = await apiFetch(`/api/admin/withdrawals/${id}/decide`, { method: "POST", body: JSON.stringify({ approve })});
+  const res = await apiFetch(`/admin/api/admin/withdrawals/${id}/decide`, { method: "POST", body: JSON.stringify({ approve })});
   alert(res.data?.message || (res.ok ? "操作成功" : "操作失败"));
   if (res.ok) fetchWithdrawalRequests();
 }
 async function fetchPointRecords() {
-  const res = await apiFetch("/api/points/records");
+  const res = await apiFetch("/admin/api/points/records");
   const el = document.getElementById("pointRecords");
   if (!el) return;
   el.innerHTML = "";
@@ -483,14 +483,15 @@ function switchUserTab(type) {
   const userPanel = document.getElementById("userPanel");
   const merchantPanel = document.getElementById("merchantPanel");
 
-  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  // 修复选择器错误 - 使用正确的按钮选择器
+  document.querySelectorAll(".tab-row .btn").forEach(b => b.classList.remove("active"));
 
   if (type === "user") {
-    document.querySelectorAll(".tab-btn")[0].classList.add("active");
+    document.querySelectorAll(".tab-row .btn")[0].classList.add("active");
     userPanel.style.display = "block";
     merchantPanel.style.display = "none";
   } else {
-    document.querySelectorAll(".tab-btn")[1].classList.add("active");
+    document.querySelectorAll(".tab-row .btn")[1].classList.add("active");
     userPanel.style.display = "none";
     merchantPanel.style.display = "block";
   }
@@ -501,7 +502,7 @@ function switchUserTab(type) {
  *************************************************/
 async function loadUserList() {
   try {
-    const res = await fetch("/api/admin/users");
+    const res = await fetch("/admin/api/users");
     const data = await res.json();
     window._allUsers = data.users;
     renderUserTable(data.users);
@@ -515,7 +516,7 @@ async function loadUserList() {
  *************************************************/
 async function loadMerchantList() {
   try {
-    const res = await fetch("/api/admin/merchants");
+    const res = await fetch("/admin/api/merchants");
     const data = await res.json();
     window._allMerchants = data.merchants;
     renderMerchantTable(data.merchants);
@@ -531,6 +532,13 @@ function renderUserTable(list) {
   const box = document.getElementById("userTable");
   box.innerHTML = "";
 
+  // 强制设置表格为固定布局
+  const table = box.closest('table');
+  if (table) {
+    table.style.tableLayout = 'fixed';
+    table.style.width = '100%';  // 铺满整个容器
+  }
+
   list.forEach(u => {
     const row = document.createElement("tr");
 
@@ -543,12 +551,12 @@ function renderUserTable(list) {
         </span>
       </td>
       <td>
-        ${
-          u.status === "frozen"
-            ? `<button class="btn small" onclick="unfreezeUser('${u.id}')">解冻</button>`
-            : `<button class="btn small danger" onclick="freezeUser('${u.id}')">冻结</button>`
-        }
-        <button class="btn small danger" onclick="deleteUser('${u.id}')">删除</button>
+        <span>
+          <button class="btn small" onclick="${
+            u.status === "frozen" ? `unfreezeUser('${u.id}')` : `freezeUser('${u.id}')`
+          }">${u.status === "frozen" ? '解冻' : '冻结'}</button>
+          <button class="btn small danger" onclick="deleteUser('${u.id}')">删除</button>
+        </span>
       </td>
     `;
 
@@ -563,10 +571,17 @@ function renderMerchantTable(list) {
   const box = document.getElementById("merchantTable");
   box.innerHTML = "";
 
+  // 强制设置表格为固定布局
+  const table = box.closest('table');
+  if (table) {
+    table.style.tableLayout = 'fixed';
+    table.style.width = '100%';  // 铺满整个容器
+  }
+
   list.forEach(m => {
     const row = document.createElement("tr");
 
-    const statusPill = 
+    const statusPill =
       m.status === "pending" ? "pill orange" :
       m.status === "frozen" ? "pill danger" :
       "pill";
@@ -577,23 +592,24 @@ function renderMerchantTable(list) {
       "正常";
 
     row.innerHTML = `
-      <td>${m.merchantName}</td>
-      <td>${m.contact || "—"}</td>
-      <td><span class="${statusPill}">${statusText}</span></td>
+      <td>${m.username}</td>
+      <td>${m.phone || "—"}</td>
       <td>
-        ${
-          m.status === "pending"
-            ? `
-                <button class="btn small" onclick="approveMerchant('${m.id}')">通过</button>
-                <button class="btn small danger" onclick="rejectMerchant('${m.id}')">拒绝</button>
-              `
-            : ""
-        }
-        ${
-          m.status === "frozen"
-            ? `<button class="btn small" onclick="unfreezeMerchant('${m.id}')">解冻</button>`
-            : `<button class="btn small danger" onclick="freezeMerchant('${m.id}')">冻结</button>`
-        }
+        <span class="${statusPill}">${statusText}</span>
+      </td>
+      <td>
+          ${
+            m.status === "pending"
+              ? `<button class="btn small" onclick="approveMerchant('${m.id}')">通过</button>
+                  <button class="btn small danger" onclick="rejectMerchant('${m.id}')">拒绝</button>`
+              : ""
+          }
+          ${
+            m.status === "frozen"
+              ? `<button class="btn small" onclick="unfreezeMerchant('${m.id}')">解冻</button>`
+              : `<button class="btn small danger" onclick="freezeMerchant('${m.id}')" >冻结</button>`
+          }
+          <button class="btn small danger" onclick="deleteMerchant('${m.id}')">删除</button>
       </td>
     `;
 
@@ -604,21 +620,45 @@ function renderMerchantTable(list) {
 /*************************************************
  * 用户 API 操作
  *************************************************/
-async function freezeUser(id) { await fetch(`/api/admin/user/freeze/${id}`, {method:"POST"}); loadUserList(); }
-async function unfreezeUser(id) { await fetch(`/api/admin/user/unfreeze/${id}`, {method:"POST"}); loadUserList(); }
+async function freezeUser(id) {
+  await fetch(`/admin/api/users/${id}/freeze`, {method:"POST"});
+  loadUserList();
+}
+async function unfreezeUser(id) {
+  await fetch(`/admin/api/users/${id}/unfreeze`, {method:"POST"});
+  loadUserList();
+}
 async function deleteUser(id) {
   if (!confirm("确定删除该用户？")) return;
-  await fetch(`/api/admin/user/delete/${id}`, {method:"DELETE"});
+  await fetch(`/admin/api/users/${id}`, {method:"DELETE"});
   loadUserList();
 }
 
 /*************************************************
  * 商户 API 操作
  *************************************************/
-async function approveMerchant(id) { await fetch(`/api/admin/merchant/approve/${id}`, {method:"POST"}); loadMerchantList(); }
-async function rejectMerchant(id) { await fetch(`/api/admin/merchant/reject/${id}`, {method:"POST"}); loadMerchantList(); }
-async function freezeMerchant(id) { await fetch(`/api/admin/merchant/freeze/${id}`, {method:"POST"}); loadMerchantList(); }
-async function unfreezeMerchant(id) { await fetch(`/api/admin/merchant/unfreeze/${id}`, {method:"POST"}); loadMerchantList(); }
+async function approveMerchant(id) {
+  await fetch(`/admin/api/merchant/approve/${id}`, {method:"POST"});
+  loadMerchantList();
+}
+async function rejectMerchant(id) {
+  await fetch(`/admin/api/merchant/reject/${id}`, {method:"POST"});
+  loadMerchantList();
+}
+async function freezeMerchant(id) {
+  await fetch(`/admin/api/merchants/${id}/freeze`, {method:"POST"});
+  loadMerchantList();
+}
+async function unfreezeMerchant(id) {
+  await fetch(`/admin/api/merchants/${id}/unfreeze`, {method:"POST"});
+  loadMerchantList();
+}
+async function deleteMerchant(id) {
+  if (confirm("确定要删除这个商户吗？")) {
+    await fetch(`/admin/api/merchants/${id}`, {method:"DELETE"});
+    loadMerchantList();
+  }
+}
 
 /*************************************************
  * 搜索
@@ -626,13 +666,16 @@ async function unfreezeMerchant(id) { await fetch(`/api/admin/merchant/unfreeze/
 function filterAccountList() {
   const q = document.getElementById("searchInput").value.toLowerCase();
 
-  if (document.querySelector(".tab-btn.active").innerText === "用户列表") {
+  // 修复选择器错误 - 使用正确的按钮选择器
+  const activeTab = document.querySelector(".tab-row .btn.active");
+  if (activeTab && activeTab.innerText === "用户列表") {
     renderUserTable(window._allUsers.filter(u =>
-      (u.username + (u.email || "")).toLowerCase().includes(q)
+      (u.username + (u.email || "") + (u.phone || "")).toLowerCase().includes(q)
     ));
   } else {
+    // 修复商户数据字段名 - 使用username而不是merchantName，phone而不是contact
     renderMerchantTable(window._allMerchants.filter(m =>
-      (m.merchantName + (m.contact || "")).toLowerCase().includes(q)
+      (m.username + (m.email || "") + (m.phone || "")).toLowerCase().includes(q)
     ));
   }
 }
