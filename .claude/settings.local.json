@@ -11,7 +11,9 @@
       "Bash(dir:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(flask db:*)",
+      "Bash(mysql:*)"
     ]
   }
 }

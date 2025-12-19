@@ -1,6 +1,8 @@
 import re
 import redis
 import json
+import random
+from datetime import datetime, timedelta
 from flask import Blueprint, request, render_template, jsonify, session, redirect, url_for, g
 
 from apps.administrators.models import *
@@ -85,6 +87,161 @@ def register():
             "message": "注册成功,即将返回登录页面!",
         }), 200
     return render_template('login/register.html')
+
+
+# 发送短信验证码
+@user_bp.route('/send_sms_code', methods=['POST'])
+def send_sms_code():
+    """发送短信验证码"""
+    try:
+        # 1. 获取手机号
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "message": "请求参数错误"}), 400
+
+        phone = data.get('phone', '').strip()
+
+        # 2. 验证手机号格式
+        if not re.match(r'^1[3-9]\d{9}$', phone):
+            return jsonify({"success": False, "message": "手机号格式不正确"}), 400
+
+        # 3. 检查手机号是否已注册（支持用户、商户、管理员）
+        user = User.query.filter_by(phone=phone).first()
+        merchant = Merchant.query.filter_by(phone=phone).first()
+        admin = Administrator.query.filter_by(phone=phone).first()
+
+        if not user and not merchant and not admin:
+            return jsonify({"success": False, "message": "该手机号未注册"}), 400
+
+        # 4. 检查发送频率限制（60秒内只能发送一次）
+        now = datetime.now()
+        one_minute_ago = now - timedelta(seconds=60)
+
+        recent_code = SmsCode.query.filter(
+            SmsCode.phone == phone,
+            SmsCode.create_time > one_minute_ago
+        ).first()
+
+        if recent_code:
+            return jsonify({"success": False, "message": "验证码发送过于频繁，请稍后再试"}), 429
+
+        # 5. 生成6位随机验证码
+        code = f"{random.randint(0, 999999):06d}"
+
+        # 6. 设置过期时间（5分钟）
+        expire_time = now + timedelta(minutes=5)
+
+        # 7. 先将该手机号之前的验证码都标记为已使用（防止重复使用）
+        SmsCode.query.filter(
+            SmsCode.phone == phone,
+            SmsCode.is_used == False
+        ).update({"is_used": True})
+
+        # 8. 保存新的验证码到数据库
+        sms_code = SmsCode(
+            phone=phone,
+            code=code,
+            expire_time=expire_time,
+            is_used=False
+        )
+        db.session.add(sms_code)
+        db.session.commit()
+
+        # 9. 发送短信（这里先使用控制台打印，实际部署时替换为真实短信服务）
+        print(f"【短信验证码】手机号：{phone}，验证码：{code}，5分钟内有效")
+
+        # TODO: 实际部署时替换为真实的短信服务
+        # 示例：阿里云短信服务
+        # result = send_sms_by_aliyun(phone, code)
+        # if not result:
+        #     return jsonify({"success": False, "message": "验证码发送失败"}), 500
+
+        return jsonify({
+            "success": True,
+            "message": "验证码发送成功",
+            # 开发环境下返回验证码，方便测试
+            "debug_code": code
+        }), 200
+
+    except Exception as e:
+        print(f"发送验证码失败：{str(e)}")
+        db.session.rollback()
+        return jsonify({"success": False, "message": "服务器错误，请稍后重试"}), 500
+
+
+# 验证码登录
+@user_bp.route('/login_sms', methods=['POST'])
+def login_sms():
+    """使用短信验证码登录"""
+    try:
+        # 1. 获取参数
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "message": "请求参数错误"}), 400
+
+        phone = data.get('phone', '').strip()
+        code = data.get('code', '').strip()
+
+        # 2. 验证参数
+        if not re.match(r'^1[3-9]\d{9}$', phone):
+            return jsonify({"success": False, "message": "手机号格式不正确"}), 400
+
+        if not re.match(r'^\d{6}$', code):
+            return jsonify({"success": False, "message": "验证码格式不正确"}), 400
+
+        # 3. 查询有效的验证码
+        now = datetime.now()
+        valid_code = SmsCode.query.filter(
+            SmsCode.phone == phone,
+            SmsCode.code == code,
+            SmsCode.is_used == False,
+            SmsCode.expire_time > now
+        ).order_by(SmsCode.create_time.desc()).first()
+
+        if not valid_code:
+            return jsonify({"success": False, "message": "验证码错误或已失效"}), 400
+
+        # 4. 根据手机号查找用户（支持用户、商户、管理员）
+        user = User.query.filter_by(phone=phone).first()
+        merchant = Merchant.query.filter_by(phone=phone).first()
+        admin = Administrator.query.filter_by(phone=phone).first()
+
+        # 5. 验证用户存在性
+        if not user and not merchant and not admin:
+            return jsonify({"success": False, "message": "该手机号未注册"}), 400
+
+        # 6. 将验证码标记为已使用
+        valid_code.is_used = True
+        db.session.commit()
+
+        # 7. 根据用户类型写入session
+        if user:
+            session["nickname"] = user.nickname
+            session["username"] = user.username
+            session["password"] = user.password
+            session["phone"] = user.phone
+            session["email"] = user.email
+            return jsonify({"message": "登录成功！", "role": "user"}), 200
+
+        elif merchant:
+            session["mname"] = merchant.mname
+            session["username"] = merchant.username
+            session["password"] = merchant.password
+            session["phone"] = merchant.phone
+            session["email"] = merchant.email
+            return jsonify({"message": "登录成功！", "role": "merchant"}), 200
+
+        elif admin:
+            session["adminname"] = admin.adminname
+            session["password"] = admin.password
+            session["phone"] = admin.phone
+            session["email"] = admin.email
+            return jsonify({"message": "登录成功！", "role": "admin"}), 200
+
+    except Exception as e:
+        print(f"验证码登录失败：{str(e)}")
+        db.session.rollback()
+        return jsonify({"success": False, "message": "服务器错误，请稍后重试"}), 500
 
 
 # 登录

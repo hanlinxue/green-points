@@ -1,6 +1,6 @@
 # ORM 类--->表
 # 类对象--->表中的一条记录
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from exts import db
 
@@ -68,3 +68,19 @@ class UserTrip(db.Model):
     audit_time = db.Column(db.DateTime, nullable=True, comment="审核完成时间")
     audit_admin = db.Column(db.String(50), nullable=True, comment="审核管理员用户名")
     reject_reason = db.Column(db.String(200), nullable=True, comment="驳回原因（可选）")
+
+
+# 短信验证码
+class SmsCode(db.Model):
+    __tablename__ = 'tb_sms_code'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    phone = db.Column(db.String(11), nullable=False, comment="手机号")
+    code = db.Column(db.String(6), nullable=False, comment="验证码")
+    create_time = db.Column(db.DateTime, default=datetime.now, comment="创建时间")
+    expire_time = db.Column(db.DateTime, nullable=False, comment="过期时间")
+    is_used = db.Column(db.Boolean, default=False, comment="是否已使用：True-已使用，False-未使用")
+
+    # 设置联合索引（手机号 + 是否使用），提高查询效率
+    __table_args__ = (
+        db.Index('idx_phone_used', 'phone', 'is_used'),
+    )
