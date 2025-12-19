@@ -556,7 +556,7 @@
       }
 
       try {
-        const response = await fetch(`/user/user_profile/user_orders/${currentOrderId}/cancel`, {
+        const response = await fetch(`/api/orders/${currentOrderId}/cancel`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -589,7 +589,7 @@
       }
 
       try {
-        const response = await fetch(`/user/user_profile/user_orders/${orderId}/confirm`, {
+        const response = await fetch(`/api/orders/${orderId}/receive`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -603,7 +603,7 @@
           closeOrderDetailModal();
           await fetchOrders();
         } else {
-          showToast(result.error || '操作失败', 'error');
+          showToast(result.message || result.error || '操作失败', 'error');
         }
       } catch (error) {
         console.error('确认收货失败:', error);

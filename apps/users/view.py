@@ -469,17 +469,17 @@ def create_exchange_order():
         # 生成订单号
         order_no = f"EX{datetime.now().strftime('%Y%m%d')}{str(uuid.uuid4())[:8].upper()}"
 
-        # 查找匹配的地址记录
+        # 查找或创建地址记录
         address_id = None
         if address:
             # 解析地址字符串 "姓名 / 电话 / 详细地址"
             parts = address.split(' / ')
             if len(parts) >= 3:
-                name = parts[0]
-                phone = parts[1]
-                detail_address = ' / '.join(parts[2:])
+                name = parts[0].strip()
+                phone = parts[1].strip()
+                detail_address = ' / '.join(parts[2:]).strip()
 
-                # 只查找已有地址，不创建新地址
+                # 查找已有地址
                 existing_address = Address.query.filter_by(
                     username=username,
                     name=name,
@@ -490,8 +490,18 @@ def create_exchange_order():
                 if existing_address:
                     address_id = existing_address.id
                 else:
-                    # 如果没有找到匹配的地址，不允许兑换
-                    return jsonify({"success": False, "message": "请先在个人中心添加收货地址后再进行兑换"}), 400
+                    # 如果没有找到匹配的地址，自动创建一个新地址
+                    new_address = Address(
+                        username=username,
+                        name=name,
+                        phone=phone,
+                        region="",  # 兑换时输入的地址可能没有单独的地区字段
+                        detail=detail_address,
+                        is_default=False
+                    )
+                    db.session.add(new_address)
+                    db.session.flush()  # 获取新地址的ID，但不提交整个事务
+                    address_id = new_address.id
 
         # 创建订单记录
         order = Order(

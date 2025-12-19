@@ -554,17 +554,7 @@
     try {
       const response = await fetch(`/user/api/orders/${orderId}`);
       if (response.ok) {
-        const result = await response.json();
-
-        // 检查返回的数据结构
-        let order;
-        if (result.success && result.orders && result.orders.length > 0) {
-          order = result.orders[0];
-        } else if (result.id) {
-          order = result;
-        } else {
-          throw new Error('订单数据格式错误');
-        }
+        const order = await response.json();
 
         console.log('订单详情数据:', order);
         displayOrderDetail(order);
@@ -717,7 +707,7 @@
         closeOrderDetail();
         await loadOrders(); // 刷新订单列表
       } else {
-        alert(result.message || '退款申请失败');
+        alert(result.message || result.error || '退款申请失败');
       }
     } catch (error) {
       console.error('申请退款失败:', error);
@@ -746,26 +736,34 @@
     if (!currentOrderId || !currentAction) return;
 
     try {
-      // 对于取消订单，直接调用取消API
-      if (currentAction === 'cancel') {
-        const response = await fetch(`/user/api/orders/${currentOrderId}/cancel`, { method: 'POST' });
-        const result = await response.json();
+      let url;
+      let actionName;
 
-        if (response.ok && result.success) {
-          alert(result.message || '订单已取消');
-          closeConfirm();
-          closeOrderDetail();
-          await loadOrders(); // 刷新订单列表
-        } else {
-          alert(result.message || '取消订单失败');
-        }
-        return;
+      // 根据不同的操作设置不同的API路径
+      switch (currentAction) {
+        case 'cancel':
+          url = `/user/api/orders/${currentOrderId}/cancel`;
+          actionName = '取消订单';
+          break;
+        case 'receive':
+          url = `/user/api/orders/${currentOrderId}/receive`;
+          actionName = '确认收货';
+          break;
+        default:
+          return;
       }
 
-      // 其他操作使用通用的确认逻辑
-      closeConfirm();
-      closeOrderDetail();
-      await loadOrders(); // 刷新订单列表
+      const response = await fetch(url, { method: 'POST' });
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        alert(result.message || `${actionName}成功`);
+        closeConfirm();
+        closeOrderDetail();
+        await loadOrders(); // 刷新订单列表
+      } else {
+        alert(result.message || result.error || `${actionName}失败`);
+      }
 
     } catch (error) {
       console.error('操作失败:', error);
