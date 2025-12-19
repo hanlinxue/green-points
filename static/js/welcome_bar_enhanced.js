@@ -164,17 +164,15 @@
 
   // 获取当前页面的路径
   const currentPath = window.location.pathname;
-  const isLoginPage = currentPath.includes('/login') || currentPath === '/' || currentPath === '/user';
+  const isLoginPage = currentPath.includes('/login') || currentPath === '/';
 
-  // 只在非登录页面显示欢迎栏
-  if (!isLoginPage) {
-    // 获取用户信息
-    getUserInfo().then(userInfo => {
-      if (userInfo) {
-        createWelcomeBar(userInfo);
-      }
-    });
-  }
+  // 在所有页面显示欢迎栏（包括管理员页面）
+  // 获取用户信息
+  getUserInfo().then(userInfo => {
+    if (userInfo) {
+      createWelcomeBar(userInfo);
+    }
+  });
 
   // 创建欢迎栏
   function createWelcomeBar(userInfo) {
