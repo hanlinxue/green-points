@@ -15,17 +15,17 @@
       top: 0;
       left: 0;
       right: 0;
-      background: linear-gradient(135deg, #2ECC71 0%, #27AE60 100%);
-      color: #2c3e50;
-      padding: 12px 20px;
-      font-size: 15px;
-      font-weight: 500;
-      box-shadow: 0 2px 8px rgba(46,204,113,0.3);
+      background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
+      color: #ffffff;
+      padding: 12px 30px;
+      font-size: 14px;
+      font-weight: 400;
+      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.25);
       z-index: 9999;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 2px solid #27AE60;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     #welcomeBar .welcome-info {
@@ -35,52 +35,102 @@
     }
 
     #welcomeBar .role-badge {
-      background: rgba(255,255,255,0.9);
-      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 6px 14px;
       border-radius: 20px;
       font-size: 13px;
-      font-weight: 700;
-      color: #27AE60;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      font-weight: 500;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+
+    #welcomeBar .role-badge:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
     #welcomeBar .role-user {
-      background: rgba(255,255,255,0.9);
-      color: #0099ff;
+      background: rgba(34, 197, 94, 0.3);
+      border-color: rgba(34, 197, 94, 0.5);
     }
+    #welcomeBar .role-user:hover {
+      background: rgba(34, 197, 94, 0.4);
+    }
+
     #welcomeBar .role-merchant {
-      background: rgba(255,255,255,0.9);
-      color: #ff9900;
+      background: rgba(251, 191, 36, 0.3);
+      border-color: rgba(251, 191, 36, 0.5);
     }
+    #welcomeBar .role-merchant:hover {
+      background: rgba(251, 191, 36, 0.4);
+    }
+
     #welcomeBar .role-admin {
-      background: rgba(255,255,255,0.9);
-      color: #ff4444;
+      background: rgba(239, 68, 68, 0.3);
+      border-color: rgba(239, 68, 68, 0.5);
+    }
+    #welcomeBar .role-admin:hover {
+      background: rgba(239, 68, 68, 0.4);
     }
 
     #welcomeBar strong {
-      color: #1a5c3a;
+      color: #ffffff;
       font-size: 16px;
+      font-weight: 600;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     }
 
     #welcomeBar .logout-btn {
-      background: rgba(255,255,255,0.9);
-      border: 2px solid #00b359;
-      color: #27AE60;
-      padding: 6px 18px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: #ffffff;
+      padding: 8px 20px;
       border-radius: 25px;
       cursor: pointer;
       font-size: 14px;
-      font-weight: 600;
-      transition: all 0.3s;
+      font-weight: 500;
+      transition: all 0.3s ease;
       text-decoration: none;
       display: inline-block;
+      -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
     }
 
     #welcomeBar .logout-btn:hover {
-      background: #27AE60;
-      color: white;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 8px rgba(46,204,113,0.3);
+      background: rgba(239, 68, 68, 0.2);
+      border-color: rgba(239, 68, 68, 0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    #welcomeBar span:not(.role-badge):not(strong) {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 14px;
+    }
+
+    /* 添加清新绿的光泽效果 */
+    #welcomeBar::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.15),
+        transparent
+      );
+      transition: left 0.5s;
+    }
+
+    #welcomeBar:hover::before {
+      left: 100%;
     }
 
     /* 调整页面内容，避免被顶部栏遮挡 */
@@ -91,6 +141,23 @@
     /* 特别处理dashboard类的页面 */
     body.has-welcome-bar .dashboard {
       margin-top: 0;
+    }
+
+    /* 添加绿叶装饰 */
+    #welcomeBar::after {
+      content: '🌿';
+      position: absolute;
+      right: 150px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 16px;
+      opacity: 0.6;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(-50%) translateX(0); }
+      50% { transform: translateY(-55%) translateX(3px); }
     }
   `;
   document.head.appendChild(style);

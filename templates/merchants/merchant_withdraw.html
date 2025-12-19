@@ -67,18 +67,45 @@
       fetchWithdrawalRecords();
     }
 
-    // 获取提现记录
-    async function fetchWithdrawalRecords() {
+    // 页面加载时自动初始化
+    window.onload = function() {
+      console.log('商户提现页面加载中...');
+      initWithdrawPage();
+    };
+
+    // 在全局定义函数，确保可以被调用
+    window.fetchWithdrawalRecords = async function() {
+      console.log('fetchWithdrawalRecords: 开始获取提现记录...');
       try {
         const res = await fetch('/merchant/api/withdrawal-records');
+        console.log('fetchWithdrawalRecords: 响应状态', res.status);
         const data = await res.json();
+        console.log('fetchWithdrawalRecords: API响应:', data);
 
-        if (res.ok && data.success) {
-          const container = document.getElementById('withdrawalRecords');
-          if (data.records.length === 0) {
-            container.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 20px;">暂无提现记录</p>';
-          } else {
-            const recordsHtml = data.records.map(record => {
+        // 处理不同的返回格式
+        let records = [];
+        if (data.error) {
+          console.log('fetchWithdrawalRecords: API返回错误', data.error);
+          document.getElementById('withdrawalRecords').innerHTML = `<p style="color: red;">${data.error}</p>`;
+          return;
+        } else if (Array.isArray(data)) {
+          records = data;
+          console.log('fetchWithdrawalRecords: 解析为数组，长度', records.length);
+        } else if (data.records) {
+          records = data.records;
+          console.log('fetchWithdrawalRecords: 解析data.records，长度', records.length);
+        } else if (data.items) {
+          records = data.items;
+          console.log('fetchWithdrawalRecords: 解析data.items，长度', records.length);
+        } else {
+          console.log('fetchWithdrawalRecords: 未能识别的数据格式', data);
+        }
+
+        const container = document.getElementById('withdrawalRecords');
+        if (records.length === 0) {
+          container.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 20px;">暂无提现记录</p>';
+        } else {
+            const recordsHtml = records.map(record => {
               const statusText = ['待审核', '审核通过', '审核拒绝', '提现完成', '提现失败'][record.status] || '未知';
               const statusClass = ['warning', 'success', 'danger', 'success', 'danger'][record.status] || 'secondary';
 
@@ -107,13 +134,10 @@
 
             container.innerHTML = recordsHtml;
           }
-        } else {
-          console.error('获取提现记录失败：', data.error);
-        }
       } catch (error) {
         console.error('获取提现记录失败：', error);
       }
-    }
+    };
 
     // 重写processWithdrawal函数，增加成功后刷新记录
     function processWithdrawal() {
@@ -176,5 +200,9 @@
         });
     }
   </script>
+
+<!-- 引入顶部导航栏 -->
+<script src="../static/js/welcome_bar_enhanced.js"></script>
+
 </body>
 </html>

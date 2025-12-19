@@ -477,6 +477,11 @@ table .btn.small:hover {
   min-height:100vh;
   display:flex;
 }
+
+/* 有顶部导航栏时调整 */
+body.has-welcome-bar .dashboard{
+  min-height: calc(100vh - 55px);
+}
 .dash-nav{
   width:240px;
   background:#1a3d36;

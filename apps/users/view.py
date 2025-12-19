@@ -479,7 +479,7 @@ def create_exchange_order():
                 phone = parts[1].strip()
                 detail_address = ' / '.join(parts[2:]).strip()
 
-                # 查找已有地址
+                # 先尝试精确匹配
                 existing_address = Address.query.filter_by(
                     username=username,
                     name=name,
@@ -487,21 +487,41 @@ def create_exchange_order():
                     detail=detail_address
                 ).first()
 
+                # 如果精确匹配失败，尝试模糊匹配（去除空格）
+                if not existing_address:
+                    clean_phone = phone.replace(' ', '').replace('-', '')
+                    clean_detail = detail_address.replace(' ', '')
+
+                    existing_address = Address.query.filter_by(username=username).filter(
+                        Address.name == name,
+                        Address.phone.like(f'%{clean_phone}%')
+                    ).first()
+
+                    # 还是没找到，只根据姓名和电话匹配
+                    if not existing_address:
+                        existing_address = Address.query.filter_by(
+                            username=username,
+                            name=name
+                        ).filter(
+                            Address.phone.like(f'%{phone}%')
+                        ).first()
+
                 if existing_address:
                     address_id = existing_address.id
+                    print(f"找到地址ID: {address_id}")
                 else:
-                    # 如果没有找到匹配的地址，自动创建一个新地址
-                    new_address = Address(
-                        username=username,
-                        name=name,
-                        phone=phone,
-                        region="",  # 兑换时输入的地址可能没有单独的地区字段
-                        detail=detail_address,
-                        is_default=False
-                    )
-                    db.session.add(new_address)
-                    db.session.flush()  # 获取新地址的ID，但不提交整个事务
-                    address_id = new_address.id
+                    # 调试：打印所有该用户的地址
+                    all_addresses = Address.query.filter_by(username=username).all()
+                    print(f"用户 {username} 的所有地址:")
+                    for addr in all_addresses:
+                        print(f"  ID: {addr.id}, 姓名: {addr.name}, 电话: {addr.phone}")
+                        print(f"  地址: {addr.region} {addr.detail}")
+
+                    return jsonify({
+                        "success": False,
+                        "message": f"未找到匹配的地址。输入的地址：姓名={name}, 电话={phone}, 详细地址={detail_address}",
+                        "error_code": "ADDRESS_NOT_FOUND"
+                    }), 400
 
         # 创建订单记录
         order = Order(
@@ -1262,6 +1282,33 @@ def user_out():
     return render_template('login/index.html')
 
 
+# API: 获取用户地址列表
+@user_bp.route('/api/addresses', methods=['GET'])
+def get_user_addresses():
+    """获取当前用户的地址列表"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"error": "用户未登录"}), 401
+
+    try:
+        addresses = Address.query.filter_by(username=username).all()
+        address_list = []
+        for addr in addresses:
+            address_list.append({
+                "id": addr.id,
+                "name": addr.name,
+                "phone": addr.phone,
+                "region": addr.region,
+                "detail": addr.detail,
+                "is_default": addr.is_default
+            })
+
+        return jsonify(address_list), 200
+    except Exception as e:
+        print(f"获取地址列表失败：{str(e)}")
+        return jsonify({"error": "获取地址列表失败"}), 500
+
+
 # API: 获取当前登录用户信息
 @user_bp.route('/api/current_user', methods=['GET'])
 def get_current_user():
@@ -1280,11 +1327,12 @@ def get_current_user():
                     "name": admin.adminname
                 })
 
-        # 检查商户
-        merchantname = session.get("merchantname")
-        if merchantname:
+        # 检查用户
+        username = session.get("username")
+        if username:
+            # 先检查是否是商户（商户也用username存储）
             from apps.merchants.models import Merchant
-            merchant = Merchant.query.filter_by(username=merchantname).first()
+            merchant = Merchant.query.filter_by(username=username).first()
             if merchant:
                 return jsonify({
                     "role": "merchant",
@@ -1293,9 +1341,7 @@ def get_current_user():
                     "name": merchant.username
                 })
 
-        # 检查用户
-        username = session.get("username")
-        if username:
+            # 再检查是否是普通用户
             user = User.query.filter_by(username=username).first()
             if user:
                 return jsonify({

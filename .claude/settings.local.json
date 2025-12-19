@@ -8,7 +8,9 @@
       "Bash(start:*)",
       "Bash(git restore:*)",
       "Bash(git reset:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)"
     ]
   }
 }

@@ -710,7 +710,13 @@ def api_get_points_records():
             items.append({
                 "time": r.create_time.strftime("%Y-%m-%dT%H:%M:%S"),
                 "type": r.change_type,
-                "points": r.points
+                "points": r.points,
+                "username": r.username,
+                "reason": r.reason,
+                "balance": r.balance,
+                "goods_id": r.goods_id,
+                "goods_name": r.goods_name,
+                "exchange_status": r.exchange_status
             })
 
         return jsonify({
@@ -727,6 +733,11 @@ def api_get_points_records():
 @admin_bp.route('/api/withdrawals/pending', methods=['GET'])
 def api_get_pending_withdrawals():
     """获取待审核的提现申请"""
+    # 管理员登录验证
+    adminname = session.get("adminname")
+    if not adminname:
+        return jsonify({"success": False, "message": "管理员未登录！"}), 401
+
     try:
         from apps.merchants.models import WithdrawalRecord
 

@@ -637,6 +637,26 @@ def complete_order(order_id):
         if user_flow:
             user_flow.exchange_status = "已完成"
 
+        # 将积分转给商户
+        merchant = Merchant.query.filter_by(username=username).first()
+        if merchant:
+            merchant.now_points += order.point_amount  # 增加商户当前积分
+            merchant.all_points += order.point_amount  # 增加商户总积分
+
+            # 创建商户积分获得流水
+            merchant_flow = PointsFlow(
+                username=username,
+                change_type="获得",
+                reason="订单完成-商品销售",
+                points=order.point_amount,
+                balance=merchant.now_points,
+                goods_id=order.goods_id,
+                goods_name=user_flow.goods_name if user_flow else f"订单ID:{order.id}",
+                exchange_status="已完成",
+                create_time=datetime.now()
+            )
+            db.session.add(merchant_flow)
+
         db.session.commit()
 
         return jsonify({

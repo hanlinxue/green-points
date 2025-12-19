@@ -1,3 +1,5 @@
+// 直接执行脚本
+
 function generateAccount(role) {
   if (role === "admin") role = "user";
   const prefix = { user: "U", merchant: "M" }[role] || "U";
@@ -60,7 +62,7 @@ function initLoginPage() {
 }
 
 /* 忘记密码，发送验证码*/
-let _countdown = 60;
+var _countdown = 60;
 async function sendCode() {
   const id = document.getElementById("fp_id")?.value.trim();
   const email = document.getElementById("fp_email")?.value.trim();
@@ -149,11 +151,110 @@ async function fetchProducts() {
 
 /* 兑换商品 */
 async function redeemProduct(prodId) {
-  const addr = prompt("请输入收货地址（示例：张三 / 电话 / 详细地址）");
-  if (!addr) return alert("请填写地址");
-  const res = await apiFetch("/user/api/orders", { method: "POST", body: JSON.stringify({ productId: prodId, address: addr })});
-  alert(res.data?.message || (res.ok ? "下单成功" : "兑换失败"));
-  if (res.ok) await fetchProducts();
+  // 先尝试获取用户地址列表
+  try {
+    const addrResponse = await fetch('/user/api/addresses');
+    let addr = null;
+
+    if (addrResponse.ok) {
+      const addresses = await addrResponse.json();
+
+      if (addresses && addresses.length > 0) {
+        // 显示地址选择界面
+        let addrHtml = '<div style="padding: 20px; background: #f5f5f5; border-radius: 8px; max-width: 600px;">';
+        addrHtml += '<h3 style="margin-top: 0; color: #333;">请选择收货地址：</h3>';
+        addrHtml += '<div id="addrList"></div>';
+        addrHtml += '<button id="confirmAddr" style="margin-top: 15px; padding: 8px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">确认选择</button>';
+        addrHtml += '<button id="cancelAddr" style="margin-left: 10px; padding: 8px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">取消</button>';
+        addrHtml += '</div>';
+
+        // 创建模态框
+        const modal = document.createElement('div');
+        modal.id = 'addrModal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 10000;';
+        modal.innerHTML = addrHtml;
+        document.body.appendChild(modal);
+
+        // 渲染地址列表
+        const addrList = modal.querySelector('#addrList');
+        let selectedAddrId = null;
+
+        addresses.forEach((addr, index) => {
+          const addrDiv = document.createElement('div');
+          addrDiv.style.cssText = 'background: white; padding: 12px; margin: 8px 0; border-radius: 4px; cursor: pointer; border: 2px solid transparent;';
+          addrDiv.dataset.addrId = addr.id;
+
+          addrDiv.innerHTML = `
+            <input type="radio" name="address" value="${addr.id}" id="addr_${index}" style="margin-right: 10px;">
+            <label for="addr_${index}" style="cursor: pointer;">
+              <strong>${addr.name}</strong> ${addr.phone} ${addr.is_default ? '<span style="color: #28a745;">[默认]</span>' : ''}<br>
+              <span style="color: #666; font-size: 14px;">${addr.region} ${addr.detail}</span>
+            </label>
+          `;
+
+          addrDiv.addEventListener('click', function() {
+            document.querySelectorAll('#addrList > div').forEach(d => d.style.borderColor = 'transparent');
+            this.style.borderColor = '#28a745';
+            this.querySelector('input').checked = true;
+            selectedAddrId = addr.id;
+          });
+
+          addrList.appendChild(addrDiv);
+        });
+
+        // 绑定确认按钮
+        modal.querySelector('#confirmAddr').onclick = async function() {
+          if (!selectedAddrId) {
+            alert('请选择一个地址');
+            return;
+          }
+
+          const selectedAddr = addresses.find(a => a.id == selectedAddrId);
+          addr = `${selectedAddr.name} / ${selectedAddr.phone} / ${selectedAddr.region} ${selectedAddr.detail}`;
+
+          document.body.removeChild(modal);
+
+          // 调用兑换API
+          const res = await apiFetch("/user/api/orders", { method: "POST", body: JSON.stringify({ productId: prodId, address: addr })});
+          alert(res.data?.message || (res.ok ? "下单成功" : "兑换失败"));
+          if (res.ok) await fetchProducts();
+        };
+
+        // 绑定取消按钮
+        modal.querySelector('#cancelAddr').onclick = function() {
+          document.body.removeChild(modal);
+        };
+
+        // 点击背景关闭
+        modal.onclick = function(e) {
+          if (e.target === modal) {
+            document.body.removeChild(modal);
+          }
+        };
+
+        return; // 等待用户选择
+      }
+    }
+
+    // 如果没有地址或获取失败，使用手动输入
+    addr = prompt("请输入收货地址（格式：姓名 / 电话 / 详细地址）\n\n注意：地址必须与您在个人中心保存的地址完全匹配");
+    if (!addr) return;
+
+    const res = await apiFetch("/user/api/orders", { method: "POST", body: JSON.stringify({ productId: prodId, address: addr })});
+    alert(res.data?.message || (res.ok ? "下单成功" : "兑换失败"));
+    if (res.ok) await fetchProducts();
+
+  } catch (error) {
+    console.error('兑换失败:', error);
+
+    // 出错时使用手动输入
+    const addr = prompt("请输入收货地址（格式：姓名 / 电话 / 详细地址）\n\n注意：地址必须与您在个人中心保存的地址完全匹配");
+    if (!addr) return;
+
+    const res = await apiFetch("/user/api/orders", { method: "POST", body: JSON.stringify({ productId: prodId, address: addr })});
+    alert(res.data?.message || (res.ok ? "下单成功" : "兑换失败"));
+    if (res.ok) await fetchProducts();
+  }
 }
 
 /* 商户控制台 (上架/订单/提现) */
@@ -346,17 +447,41 @@ function setText(elementId, text) {
 }
 
 async function fetchWithdrawalRequests() {
-  const res = await apiFetch("/admin/api/admin/withdrawals/pending");
+  console.log("fetchWithdrawalRequests: 开始获取提现申请...");
+  const res = await apiFetch("/admin/api/withdrawals/pending");
+  console.log("fetchWithdrawalRequests: API响应", res);
   const el = document.getElementById("withdrawalRequests");
-  if (!el) return;
+  if (!el) {
+    console.error("fetchWithdrawalRequests: 未找到withdrawalRequests元素");
+    return;
+  }
   el.innerHTML = "";
-  const items = (res.ok && Array.isArray(res.data.items)) ? res.data.items : [];
+
+  if (!res.ok) {
+    console.error("fetchWithdrawalRequests: API请求失败", res.status, res.data);
+    el.innerHTML = `<div class='empty-state' style='color: red;'>获取提现申请失败：${res.data.message || '未知错误'}</div>`;
+    return;
+  }
+
+  // 尝试多种可能的返回格式
+  let items = [];
+  if (res.ok) {
+    console.log("fetchWithdrawalRequests: 原始响应数据", res.data);
+    if (Array.isArray(res.data.data?.items)) {
+      items = res.data.data.items;
+    } else if (Array.isArray(res.data.items)) {
+      items = res.data.items;
+    } else if (Array.isArray(res.data)) {
+      items = res.data;
+    }
+  }
+  console.log("fetchWithdrawalRequests: 提现申请列表", items);
   setText("metricWithdrawals", items.length);
   if (items.length === 0) { el.innerHTML = "<div class='empty-state'>暂无提现申请</div>"; return; }
   items.forEach(w => {
     const node = document.createElement("div");
     node.className = "card";
-    node.innerHTML = `<div style="display:flex;justify-content:space-between"><div><p style="margin:0"><strong>${w.merchantId}</strong></p><p style="color:#6b7280;margin-top:6px">¥${w.amount.toFixed(2)}</p></div><div><button class="btn" onclick="adminDecideWithdrawal('${w.id}', true)">批准</button><button class="btn-ghost" style="margin-left:8px" onclick="adminDecideWithdrawal('${w.id}', false)">拒绝</button></div></div>`;
+    node.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div style="flex:1"><p style="margin:0"><strong>${w.merchantId || w.merchantName}</strong></p><p style="color:#6b7280;margin-top:6px">积分：${w.points} (${w.amount ? w.amount.toFixed(2) : (w.points/100).toFixed(2)}元)</p><p style="color:#6b7280;margin-top:4px;font-size:12px">${w.withdrawal_no || ''}</p></div><div style="display:flex;gap:12px"><button class="btn" onclick="adminDecideWithdrawal('${w.id}', true)" style="padding:10px 24px;font-size:14px;font-weight:500;min-width:80px;">批准</button><button class="btn" onclick="adminDecideWithdrawal('${w.id}', false)" style="padding:10px 24px;font-size:14px;font-weight:500;min-width:80px;background-color:#dc3545;border-color:#dc3545;">拒绝</button></div></div>`;
     el.appendChild(node);
   });
 }
@@ -367,18 +492,87 @@ async function adminDecideWithdrawal(id, approve) {
   if (res.ok) fetchWithdrawalRequests();
 }
 async function fetchPointRecords() {
+  console.log("fetchPointRecords: 开始获取积分记录...");
   const res = await apiFetch("/admin/api/points/records");
+  console.log("fetchPointRecords: API响应", res);
+  console.log("fetchPointRecords: res.data", res.data);
+  console.log("fetchPointRecords: res.data.items", res.data?.items);
   const el = document.getElementById("pointRecords");
   if (!el) return;
   el.innerHTML = "";
-  const items = (res.ok && Array.isArray(res.data.items)) ? res.data.items : [];
+
+  if (!res.ok) {
+    console.error("fetchPointRecords: API请求失败", res);
+    el.innerHTML = `<div class='empty-state' style='color: red;'>获取积分记录失败：${res.data?.message || '未知错误'}</div>`;
+    return;
+  }
+
+  // 尝试多种可能的返回格式
+  let items = [];
+  if (Array.isArray(res.data.items)) {
+    items = res.data.items;
+    console.log("fetchPointRecords: 使用res.data.items，长度", items.length);
+  } else if (Array.isArray(res.data)) {
+    items = res.data;
+    console.log("fetchPointRecords: 使用res.data，长度", items.length);
+  } else if (res.data && res.data.data && Array.isArray(res.data.data.items)) {
+    items = res.data.data.items;
+    console.log("fetchPointRecords: 使用res.data.data.items，长度", items.length);
+  }
+
+  console.log("fetchPointRecords: 积分记录列表", items);
+
   const totalPoints = items.reduce((sum, r) => sum + (Number(r.points) || 0), 0);
   setText("metricPoints", items.length ? `${totalPoints > 0 ? "+" : ""}${totalPoints}` : "0");
-  if (items.length === 0) { el.innerHTML = "<div class='empty-state'>暂无记录</div>"; return; }
+
+  if (items.length === 0) {
+    el.innerHTML = "<div class='empty-state'>暂无记录</div>";
+    return;
+  }
+
   items.forEach(r => {
     const node = document.createElement("div");
     node.className = "list-row";
-    node.innerHTML = `<div>${new Date(r.time).toLocaleString()} · ${r.type}</div><div><strong>${r.points>0?'+':''}${r.points}</strong></div>`;
+    const pointColor = r.points > 0 ? 'green' : 'red';
+    const pointSign = r.points > 0 ? '+' : '';
+
+    // 判断是用户还是商户
+    let userType = '未知';
+    if (r.username) {
+      if (r.username.startsWith('U')) {
+        userType = '用户';
+      } else if (r.username.startsWith('M')) {
+        userType = '商户';
+      } else if (r.username.startsWith('A')) {
+        userType = '管理员';
+      }
+    }
+
+    node.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #eee; background-color: ${r.points > 0 ? 'rgba(46, 204, 113, 0.05)' : 'rgba(231, 76, 60, 0.05)'};">
+        <div style="flex:1;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+            <span style="color:#666; font-size:12px;">${new Date(r.time).toLocaleString()}</span>
+            <span style="padding:2px 8px; background: ${userType === '用户' ? '#3498db' : userType === '商户' ? '#f39c12' : userType === '管理员' ? '#e74c3c' : '#999'}; color:white; border-radius:12px; font-size:11px;">
+              ${userType}
+            </span>
+          </div>
+          <div style="color:#333; font-weight:500; margin-bottom:4px;">${r.reason || r.type}</div>
+          <div style="color:#666; font-size:14px;">
+            ${r.username ? `<span style="margin-right:15px;">账号: ${r.username}</span>` : ''}
+            ${r.balance !== undefined ? `余额: ${r.balance} 积分` : ''}
+          </div>
+          ${r.goods_name ? `<div style="color:#999; font-size:12px; margin-top:4px;">商品: ${r.goods_name}</div>` : ''}
+          ${r.exchange_status ? `<div style="color:#999; font-size:12px; margin-top:2px;">状态: ${r.exchange_status}</div>` : ''}
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:20px; font-weight:bold; color: ${pointColor};">
+            ${pointSign}${r.points}
+          </div>
+          <div style="font-size:12px; color:#666; margin-top:4px;">积分</div>
+        </div>
+      </div>
+    `;
     el.appendChild(node);
   });
 }
@@ -391,7 +585,7 @@ async function fetchPointRecords() {
    ========================================================== */
 
 // 本地缓存的规则列表（从后台获取）
-let POINT_RULES = [];
+var POINT_RULES = [];
 
 /* ----- 1. 初始化页面 ----- */
 function initPointRules() {
@@ -872,7 +1066,7 @@ function renderList(domId, list, emptyText = "暂无数据") {
 
 /* ----- 3. 更新个人资料 ----- */
 // 全局变量：防止重复提交的锁
-let isSubmitting = false;
+var isSubmitting = false;
 
 function saveUserProfile() {
   // 1. 校验是否处于编辑模式（避免未编辑就提交）
@@ -1052,22 +1246,47 @@ function processOrder(orderId) {
 
 // 获取商家的积分余额和兑换信息
 function fetchMerchantPoints() {
-  // 假设有一个接口可以获取商家的积分和兑换信息
-  fetch('/api/get-merchant-points') 
-    .then(response => response.json())
+  // 获取商户的积分和兑换信息
+  console.log('正在获取商户积分信息...');
+  fetch('/merchant/api/get-merchant-points')
+    .then(response => {
+      console.log('响应状态:', response.status);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
     .then(data => {
+      if (data.error) {
+        console.error('获取积分失败:', data.error);
+        const pointsInfoContainer = document.getElementById('merchantPointsInfo');
+        if (pointsInfoContainer) {
+          pointsInfoContainer.innerHTML = `<p style="color: red;">${data.error}</p>`;
+        }
+        return;
+      }
+
       const pointsInfoContainer = document.getElementById('merchantPointsInfo');
-      const points = data.points; // 商家的积分余额
-      const exchangeRate = data.exchangeRate; // 汇率（积分兑换人民币的比例）
+      if (!pointsInfoContainer) return;
+
+      const points = data.points || 0; // 商家的积分余额
+      const exchangeRate = data.exchangeRate || 100; // 汇率（积分兑换人民币的比例）
+      const currencySymbol = data.currencySymbol || '¥'; // 货币符号
 
       const convertedAmount = (points / exchangeRate).toFixed(2); // 转换成人民币金额
       pointsInfoContainer.innerHTML = `
-        <p><strong>当前积分余额：</strong>${points} 积分</p>
-        <p><strong>兑换汇率：</strong>1元人民币 = ${exchangeRate}积分</p>
-        <p><strong>可兑换金额：</strong>${convertedAmount} 元人民币</p>
+        <p><strong>当前积分余额：</strong>${points.toLocaleString()} 积分</p>
+        <p><strong>兑换汇率：</strong>1${currencySymbol} = ${exchangeRate}积分</p>
+        <p><strong>可兑换金额：</strong>${currencySymbol}${convertedAmount}</p>
       `;
     })
-    .catch(error => console.error('Error fetching merchant points:', error));
+    .catch(error => {
+      console.error('Error fetching merchant points:', error);
+      const pointsInfoContainer = document.getElementById('merchantPointsInfo');
+      if (pointsInfoContainer) {
+        pointsInfoContainer.innerHTML = '<p style="color: red;">加载积分信息失败</p>';
+      }
+    });
 }
 
 // 提交积分提现申请
@@ -1079,11 +1298,21 @@ function processWithdrawal() {
   }
 
   // 获取商家的积分余额和兑换汇率
-  fetch('/api/get-merchant-points') 
-    .then(response => response.json())
+  fetch('/merchant/api/get-merchant-points')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
     .then(data => {
-      const points = data.points; // 商家的积分余额
-      const exchangeRate = data.exchangeRate; // 汇率
+      if (data.error) {
+        alert('获取积分信息失败：' + data.error);
+        return;
+      }
+
+      const points = data.points || 0; // 商家的积分余额
+      const exchangeRate = data.exchangeRate || 100; // 汇率
 
       // 检查提现的积分是否小于等于商家余额
       if (withdrawAmount > points) {
@@ -1093,26 +1322,43 @@ function processWithdrawal() {
 
       const withdrawalAmount = (withdrawAmount / exchangeRate).toFixed(2); // 计算人民币金额
 
+      if (!confirm(`确定要申请提现 ${withdrawAmount} 积分（约 ${withdrawalAmount} 元）吗？`)) {
+        return;
+      }
+
       // 调用后端接口申请提现
-      fetch('/api/process-withdrawal', {
+      fetch('/merchant/api/process-withdrawal', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ withdrawAmount, withdrawPoints: withdrawAmount * exchangeRate })
+        body: JSON.stringify({ withdrawAmount: withdrawAmount })
       })
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
       .then(data => {
         if (data.success) {
-          alert('提现申请成功');
+          alert(data.message || '提现申请成功');
           fetchMerchantPoints(); // 刷新积分信息
+          // 清空输入框
+          document.getElementById('withdrawAmount').value = '';
         } else {
-          alert('提现申请失败');
+          alert(data.message || '提现申请失败');
         }
       })
-      .catch(error => console.error('Error processing withdrawal:', error));
+      .catch(error => {
+        console.error('Error processing withdrawal:', error);
+        alert('提现申请失败，请稍后重试');
+      });
     })
-    .catch(error => console.error('Error fetching merchant points:', error));
+    .catch(error => {
+      console.error('Error fetching merchant points:', error);
+      alert('获取积分信息失败，请稍后重试');
+    });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1168,4 +1414,11 @@ window.merchantRequestWithdrawal = merchantRequestWithdrawal;
 window.redeemProduct = redeemProduct;
 window.fetchProducts = fetchProducts;
 window.fetchPointRecords = fetchPointRecords;
-window.toResetPage = toResetPage; 
+window.toResetPage = toResetPage;
+
+// 管理员相关函数
+window.fetchPendingTrips = fetchPendingTrips;
+window.fetchWithdrawalRequests = fetchWithdrawalRequests;
+window.adminDecideWithdrawal = adminDecideWithdrawal;
+
+ 
