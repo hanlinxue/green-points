@@ -94,24 +94,34 @@ def register():
 def send_sms_code():
     """发送短信验证码"""
     try:
-        # 1. 获取手机号
+        # 1. 获取手机号和角色
         data = request.get_json()
         if not data:
             return jsonify({"success": False, "message": "请求参数错误"}), 400
 
         phone = data.get('phone', '').strip()
+        role = data.get('role', 'user')  # 获取角色参数，默认为user
 
         # 2. 验证手机号格式
         if not re.match(r'^1[3-9]\d{9}$', phone):
             return jsonify({"success": False, "message": "手机号格式不正确"}), 400
 
-        # 3. 检查手机号是否已注册（支持用户、商户、管理员）
-        user = User.query.filter_by(phone=phone).first()
-        merchant = Merchant.query.filter_by(phone=phone).first()
-        admin = Administrator.query.filter_by(phone=phone).first()
-
-        if not user and not merchant and not admin:
-            return jsonify({"success": False, "message": "该手机号未注册"}), 400
+        # 3. 根据角色检查手机号是否已注册
+        target_user = None
+        if role == 'user':
+            target_user = User.query.filter_by(phone=phone).first()
+            if not target_user:
+                return jsonify({"success": False, "message": "该手机号未注册为用户"}), 400
+        elif role == 'merchant':
+            target_user = Merchant.query.filter_by(phone=phone).first()
+            if not target_user:
+                return jsonify({"success": False, "message": "该手机号未注册为商户"}), 400
+        elif role == 'admin':
+            target_user = Administrator.query.filter_by(phone=phone).first()
+            if not target_user:
+                return jsonify({"success": False, "message": "该手机号未注册为管理员"}), 400
+        else:
+            return jsonify({"success": False, "message": "无效的角色参数"}), 400
 
         # 4. 检查发送频率限制（60秒内只能发送一次）
         now = datetime.now()
@@ -147,10 +157,10 @@ def send_sms_code():
         db.session.add(sms_code)
         db.session.commit()
 
-        # 9. 发送短信（这里先使用控制台打印，实际部署时替换为真实短信服务）
+        # 9. 发送短信（模拟发送）
         print(f"【短信验证码】手机号：{phone}，验证码：{code}，5分钟内有效")
 
-        # TODO: 实际部署时替换为真实的短信服务
+        # TODO: 实际部署时替换为真实短信服务
         # 示例：阿里云短信服务
         # result = send_sms_by_aliyun(phone, code)
         # if not result:
@@ -181,6 +191,7 @@ def login_sms():
 
         phone = data.get('phone', '').strip()
         code = data.get('code', '').strip()
+        role = data.get('role', 'user')  # 获取角色参数，默认为user
 
         # 2. 验证参数
         if not re.match(r'^1[3-9]\d{9}$', phone):
@@ -201,41 +212,50 @@ def login_sms():
         if not valid_code:
             return jsonify({"success": False, "message": "验证码错误或已失效"}), 400
 
-        # 4. 根据手机号查找用户（支持用户、商户、管理员）
-        user = User.query.filter_by(phone=phone).first()
-        merchant = Merchant.query.filter_by(phone=phone).first()
-        admin = Administrator.query.filter_by(phone=phone).first()
+        # 4. 根据手机号和角色精确查找用户
+        target_user = None
+        if role == 'user':
+            target_user = User.query.filter_by(phone=phone).first()
+            if not target_user:
+                return jsonify({"success": False, "message": "该手机号未注册为用户"}), 400
+        elif role == 'merchant':
+            target_user = Merchant.query.filter_by(phone=phone).first()
+            if not target_user:
+                return jsonify({"success": False, "message": "该手机号未注册为商户"}), 400
+        elif role == 'admin':
+            target_user = Administrator.query.filter_by(phone=phone).first()
+            if not target_user:
+                return jsonify({"success": False, "message": "该手机号未注册为管理员"}), 400
+        else:
+            return jsonify({"success": False, "message": "无效的角色参数"}), 400
 
-        # 5. 验证用户存在性
-        if not user and not merchant and not admin:
-            return jsonify({"success": False, "message": "该手机号未注册"}), 400
-
-        # 6. 将验证码标记为已使用
+        # 5. 将验证码标记为已使用
         valid_code.is_used = True
         db.session.commit()
 
-        # 7. 根据用户类型写入session
-        if user:
-            session["nickname"] = user.nickname
-            session["username"] = user.username
-            session["password"] = user.password
-            session["phone"] = user.phone
-            session["email"] = user.email
+        # 6. 根据角色写入session
+        if role == 'user':
+            session["nickname"] = target_user.nickname
+            session["username"] = target_user.username
+            session["password"] = target_user.password
+            session["phone"] = target_user.phone
+            session["email"] = target_user.email
             return jsonify({"message": "登录成功！", "role": "user"}), 200
 
-        elif merchant:
-            session["mname"] = merchant.mname
-            session["username"] = merchant.username
-            session["password"] = merchant.password
-            session["phone"] = merchant.phone
-            session["email"] = merchant.email
+        elif role == 'merchant':
+            # Merchant模型没有mname字段，使用username替代
+            session["mname"] = target_user.username  # 使用username作为商户名称
+            session["username"] = target_user.username
+            session["password"] = target_user.password
+            session["phone"] = target_user.phone
+            session["email"] = target_user.email
             return jsonify({"message": "登录成功！", "role": "merchant"}), 200
 
-        elif admin:
-            session["adminname"] = admin.adminname
-            session["password"] = admin.password
-            session["phone"] = admin.phone
-            session["email"] = admin.email
+        elif role == 'admin':
+            session["adminname"] = target_user.adminname
+            session["password"] = target_user.password
+            session["phone"] = target_user.phone
+            session["email"] = target_user.email
             return jsonify({"message": "登录成功！", "role": "admin"}), 200
 
     except Exception as e:
@@ -317,6 +337,150 @@ def forgot():
 @user_bp.route('/reset')
 def reset():
     return render_template('login/reset.html')
+
+
+# 验证重置密码的验证码
+@user_bp.route('/verify_reset_code', methods=['POST'])
+def verify_reset_code():
+    """验证重置密码的验证码"""
+    try:
+        # 1. 获取参数
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "message": "请求参数错误"}), 400
+
+        phone = data.get('phone', '').strip()
+        code = data.get('code', '').strip()
+        role = data.get('role', 'user')
+
+        # 2. 验证参数
+        if not re.match(r'^1[3-9]\d{9}$', phone):
+            return jsonify({"success": False, "message": "手机号格式不正确"}), 400
+
+        if not re.match(r'^\d{6}$', code):
+            return jsonify({"success": False, "message": "验证码格式不正确"}), 400
+
+        # 3. 查询有效的验证码
+        now = datetime.now()
+        valid_code = SmsCode.query.filter(
+            SmsCode.phone == phone,
+            SmsCode.code == code,
+            SmsCode.is_used == False,
+            SmsCode.expire_time > now
+        ).order_by(SmsCode.create_time.desc()).first()
+
+        if not valid_code:
+            return jsonify({"success": False, "message": "验证码错误或已失效"}), 400
+
+        # 4. 根据手机号和角色查找用户
+        target_user = None
+        if role == 'user':
+            target_user = User.query.filter_by(phone=phone).first()
+            if not target_user:
+                print(f"[调试] 用户不存在: phone={phone}")
+                return jsonify({"success": False, "message": "该手机号未注册为用户"}), 400
+        elif role == 'merchant':
+            target_user = Merchant.query.filter_by(phone=phone).first()
+            if not target_user:
+                print(f"[调试] 商户不存在: phone={phone}")
+                return jsonify({"success": False, "message": "该手机号未注册为商户"}), 400
+        elif role == 'admin':
+            target_user = Administrator.query.filter_by(phone=phone).first()
+            if not target_user:
+                print(f"[调试] 管理员不存在: phone={phone}")
+                return jsonify({"success": False, "message": "该手机号未注册为管理员"}), 400
+        else:
+            print(f"[调试] 无效角色: role={role}")
+            return jsonify({"success": False, "message": "无效的角色参数"}), 400
+
+        # 5. 验证成功
+        # 根据角色获取用户名
+        if role == 'admin':
+            user_identifier = target_user.adminname
+        else:
+            user_identifier = target_user.username
+
+        print(f"[调试] 验证成功: 找到用户 {user_identifier}")
+        return jsonify({
+            "success": True,
+            "message": "验证成功",
+            "username": user_identifier  # 返回用户名用于重置密码
+        }), 200
+
+    except Exception as e:
+        import traceback
+        print(f"验证重置密码验证码失败：{str(e)}")
+        print(f"错误堆栈：{traceback.format_exc()}")
+        return jsonify({"success": False, "message": "服务器错误，请稍后重试"}), 500
+
+
+# 重置密码
+@user_bp.route('/reset_password', methods=['POST'])
+def reset_password():
+    """重置密码"""
+    try:
+        # 1. 获取参数
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "message": "请求参数错误"}), 400
+
+        phone = data.get('phone', '').strip()
+        password = data.get('password', '').strip()
+        role = data.get('role', 'user')
+
+        # 2. 验证参数
+        if not re.match(r'^1[3-9]\d{9}$', phone):
+            return jsonify({"success": False, "message": "手机号格式不正确"}), 400
+
+        if not password:
+            return jsonify({"success": False, "message": "密码不能为空"}), 400
+
+        if len(password) < 11:
+            return jsonify({"success": False, "message": "密码长度不能少于11位"}), 400
+
+        if not re.match(r'^(?=.*[A-Za-z])(?=.*\d).{11,}$', password):
+            return jsonify({"success": False, "message": "密码必须由数字和字母组成，且长度不少于11位"}), 400
+
+        # 3. 根据手机号和角色查找用户
+        target_user = None
+        if role == 'user':
+            target_user = User.query.filter_by(phone=phone).first()
+            if not target_user:
+                return jsonify({"success": False, "message": "该手机号未注册为用户"}), 400
+        elif role == 'merchant':
+            target_user = Merchant.query.filter_by(phone=phone).first()
+            if not target_user:
+                return jsonify({"success": False, "message": "该手机号未注册为商户"}), 400
+        elif role == 'admin':
+            target_user = Administrator.query.filter_by(phone=phone).first()
+            if not target_user:
+                return jsonify({"success": False, "message": "该手机号未注册为管理员"}), 400
+        else:
+            return jsonify({"success": False, "message": "无效的角色参数"}), 400
+
+        # 4. 更新密码
+        target_user.password = password
+        db.session.commit()
+
+        # 5. 将该手机号的所有验证码标记为已使用
+        SmsCode.query.filter(
+            SmsCode.phone == phone,
+            SmsCode.is_used == False
+        ).update({"is_used": True})
+        db.session.commit()
+
+        # 6. 记录密码重置日志（可选）
+        print(f"[重置密码] {role} {target_user.username} 手机号 {phone} 已成功重置密码")
+
+        return jsonify({
+            "success": True,
+            "message": "密码重置成功"
+        }), 200
+
+    except Exception as e:
+        print(f"重置密码失败：{str(e)}")
+        db.session.rollback()
+        return jsonify({"success": False, "message": "服务器错误，请稍后重试"}), 500
 
 
 # %%用户界面

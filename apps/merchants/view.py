@@ -37,12 +37,6 @@ def check_and_update_zero_stock_products():
         return 0
 
 
-@merchant_bp.route('/merchant_index', methods=['GET', 'POST'])
-def merchant_index():
-    username = session.get("username")
-    if not username:
-        return redirect(url_for("user.index"))
-    return render_template("merchants/merchant.html")
 
 
 @merchant_bp.route('/merchant_oder', methods=['GET', 'POST'])
@@ -77,6 +71,25 @@ def merchant_out():
     if not username:
         return redirect(url_for("user.index"))
     return render_template('login/index.html')
+
+
+@merchant_bp.route('/merchant_info', methods=['GET'])
+def get_merchant_info():
+    """获取当前商户的积分信息"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"success": False, "message": "未登录"}), 401
+
+    merchant = Merchant.query.filter_by(username=username).first()
+    if not merchant:
+        return jsonify({"success": False, "message": "商户不存在"}), 404
+
+    return jsonify({
+        "success": True,
+        "now_points": merchant.now_points,
+        "all_points": merchant.all_points,
+        "use_points": merchant.use_points
+    }), 200
 
 
 # %%商品管理API

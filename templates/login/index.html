@@ -71,26 +71,47 @@
 
       <!-- ========== 账号密码登录========== -->
       <div id="tab_pwd" class="tab-content active">
-        <div class="input-group">
-          <input id="login_id" class="input" placeholder="账号 / 用户ID">
-          <input id="login_password" class="input" placeholder="密码" type="password">
-        </div>
+        <form onsubmit="login(); return false;">
+          <div class="input-group">
+            <input id="login_id" class="input" placeholder="账号 / 用户ID" autocomplete="username">
+            <input id="login_password" class="input" placeholder="密码" type="password" autocomplete="current-password">
+          </div>
 
-        <div class="form-actions">
-          <label style="font-weight:600;color:#1d2a41">
-            <input id="rememberMe" type="checkbox" style="margin-right:8px;">记住我
-          </label>
-          <a href="{{ url_for("user.forgot") }}" class="link" style="font-size:14px;">忘记密码？</a>
-        </div>
+          <div class="form-actions">
+            <label style="font-weight:600;color:#1d2a41">
+              <input id="rememberMe" type="checkbox" style="margin-right:8px;">记住我
+            </label>
+            <a href="{{ url_for("user.forgot") }}" class="link" style="font-size:14px;">忘记密码？</a>
+          </div>
 
-        <button class="btn" onclick="login()">立即登录</button>
+          <button type="submit" class="btn">立即登录</button>
+        </form>
       </div>
 
       <!-- ========== 手机验证码登录========== -->
       <div id="tab_sms" class="tab-content">
         <div class="input-group">
+          <!-- 角色选择 -->
+          <div style="margin-bottom: 15px;">
+            <label style="font-weight: 600; color: #1d2a41; margin-bottom: 8px; display: block;">选择登录角色</label>
+            <div style="display: flex; gap: 15px;">
+              <label style="cursor: pointer;">
+                <input type="radio" name="login_role" value="user" checked style="margin-right: 5px;">
+                用户
+              </label>
+              <label style="cursor: pointer;">
+                <input type="radio" name="login_role" value="merchant" style="margin-right: 5px;">
+                商户
+              </label>
+              <label style="cursor: pointer;">
+                <input type="radio" name="login_role" value="admin" style="margin-right: 5px;">
+                系统管理员
+              </label>
+            </div>
+          </div>
+
           <input id="phone" class="input" placeholder="手机号" maxlength="11">
-          
+
           <div style="display:flex;align-items:center;margin-top:12px;">
             <input id="sms_code" class="input" placeholder="短信验证码" style="flex:1;">
             <button class="code-btn" onclick="sendSmsCode(this)">获取验证码</button>
@@ -126,6 +147,8 @@
   // 发送短信验证码函数
   async function sendSmsCode(btn) {
     let phone = document.getElementById("phone").value;
+    let selectedRole = document.querySelector('input[name="login_role"]:checked').value;
+
     if (!/^1[3-9][0-9]{9}$/.test(phone)) {
       alert("请输入正确的手机号！");
       return;
@@ -137,7 +160,7 @@
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ phone })
+        body: JSON.stringify({ phone, role: selectedRole })
       });
 
       const result = await response.json();
@@ -146,7 +169,6 @@
         alert(`验证码已发送！${result.debug_code ? `（测试验证码：${result.debug_code}）` : ''}`);
 
         // 开始倒计时（60秒）
-        // const btn = event.target;  // 已作为参数传入
         let countdown = 60;
         btn.disabled = true;
         btn.textContent = `${countdown}秒后重试`;
@@ -174,6 +196,8 @@
   async function loginBySMS() {
     let phone = document.getElementById("phone").value;
     let code = document.getElementById("sms_code").value;
+    let selectedRole = document.querySelector('input[name="login_role"]:checked').value;
+
     if (!phone || !code) {
       alert("请输入手机号和验证码！");
       return;
@@ -185,7 +209,7 @@
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ phone, code })
+        body: JSON.stringify({ phone, code, role: selectedRole })
       });
 
       const result = await response.json();
@@ -197,7 +221,7 @@
         if (result.role === "user") {
           window.location.href = "/user/user_index";
         } else if (result.role === "merchant") {
-          window.location.href = "/merchant/merchant_index";
+          window.location.href = "/merchant/merchant_product";
         } else if (result.role === "admin") {
           window.location.href = "/admin/admin_index";
         }

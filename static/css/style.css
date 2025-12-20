@@ -806,3 +806,9 @@ body.has-welcome-bar .dashboard{
     gap: 12px;
   }
 }
+
+/* 恢复浏览器原生的密码显示/隐藏功能 */
+input[type="password"] {
+  /* 不强制设置text-security，让浏览器使用默认行为 */
+}
+

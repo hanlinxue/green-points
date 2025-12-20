@@ -5,16 +5,28 @@
   <meta charset="utf-8">
   <title>找回密码 - GreenPoints</title>
   <link rel="stylesheet" href="../../static/css/style.css">
+  <style>
+    .code-btn {
+      margin-left: 10px;
+      padding: 8px 12px;
+      border: none;
+      background: #1d2a41;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+  </style>
 </head>
 <body>
   <div class="eco-shell">
     <aside class="eco-illustration">
       <div class="illustration-content">
-        <h1>邮箱验证</h1>
-        <p>输入账号与注册邮箱，系统将在 10 分钟内发送验证码。</p>
+        <h1>找回密码</h1>
+        <p>通过手机验证码重置您的密码，确保账户安全。</p>
         <div class="badge-row">
+          <span class="badge-soft">手机验证</span>
           <span class="badge-soft">安全保护</span>
-          <span class="badge-soft">验证码</span>
         </div>
         <div class="wave-animation"></div>
       </div>
@@ -23,24 +35,214 @@
     <section class="eco-form">
       <div class="form-header">
         <h2>找回密码</h2>
-        <p>确保邮箱可正常接收邮件，验证码用于重置密码。</p>
+        <p>请选择您的身份并输入注册手机号，获取验证码后重置密码。</p>
       </div>
-      <div class="input-group">
-        <input id="fp_id" class="input" placeholder="账号">
-        <input id="fp_email" class="input" placeholder="注册邮箱">
-        <!-- 新增：验证码输入框（默认显示，无需隐藏） -->
-        <input id="fp_code" class="input" placeholder="请输入验证码">
-      </div>
-      <button id="sendCodeBtn" class="btn" onclick="sendCode()">发送验证码</button>
-      <!-- 新增：下一步按钮 -->
-      <button id="nextBtn" class="btn" onclick="toResetPage()" style="margin-top: 10px;">下一步</button>
-      <div class="form-links">
-        <!-- 删除：我已收到验证码链接 -->
-        <a href="{{ url_for("user.index")}}" class="link">返回登录</a>
-      </div>
+
+      <!-- 步骤1：验证手机号 -->
+      <form id="step1_form" onsubmit="verifyCode(); return false;">
+        <div class="input-group">
+          <!-- 角色选择 -->
+          <div style="margin-bottom: 15px;">
+            <label style="font-weight: 600; color: #1d2a41; margin-bottom: 8px; display: block;">选择您的身份</label>
+            <div style="display: flex; gap: 15px;">
+              <label style="cursor: pointer;">
+                <input type="radio" name="reset_role" value="user" checked style="margin-right: 5px;">
+                用户
+              </label>
+              <label style="cursor: pointer;">
+                <input type="radio" name="reset_role" value="merchant" style="margin-right: 5px;">
+                商户
+              </label>
+              <label style="cursor: pointer;">
+                <input type="radio" name="reset_role" value="admin" style="margin-right: 5px;">
+                系统管理员
+              </label>
+            </div>
+          </div>
+
+          <input id="fp_phone" class="input" placeholder="请输入注册手机号" maxlength="11" autocomplete="tel">
+
+          <div style="display:flex;align-items:center;margin-top:12px;">
+            <input id="fp_code" class="input" placeholder="短信验证码" style="flex:1;" autocomplete="one-time-code">
+            <button type="button" class="code-btn" onclick="sendSmsCode(this)">获取验证码</button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn">验证身份</button>
+        <div class="form-links">
+          <a href="{{ url_for("user.index")}}" class="link">返回登录</a>
+        </div>
+      </form>
+
+      <!-- 步骤2：重置密码（默认隐藏） -->
+      <form id="step2_form" onsubmit="resetPassword(); return false;" style="display: none;">
+        <div class="input-group">
+          <input id="new_password" class="input" placeholder="请输入新密码" type="password" autocomplete="new-password">
+          <input id="confirm_password" class="input" placeholder="请再次输入新密码" type="password" autocomplete="new-password">
+        </div>
+
+        <button type="submit" class="btn">重置密码</button>
+        <button type="button" class="btn-outline" onclick="backToStep1()">返回上一步</button>
+        <div class="form-links">
+          <a href="{{ url_for("user.index")}}" class="link">返回登录</a>
+        </div>
+      </form>
     </section>
   </div>
 
   <script src="../../static/js/script.js"></script>
+  <script>
+    let currentPhone = '';
+    let currentRole = 'user';
+
+    // 发送短信验证码
+    async function sendSmsCode(btn) {
+      let phone = document.getElementById("fp_phone").value;
+      let role = document.querySelector('input[name="reset_role"]:checked').value;
+
+      if (!/^1[3-9][0-9]{9}$/.test(phone)) {
+        alert("请输入正确的手机号！");
+        return;
+      }
+
+      try {
+        const response = await fetch("/user/send_sms_code", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ phone, role })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          alert(`验证码已发送！${result.debug_code ? `（测试验证码：${result.debug_code}）` : ''}`);
+
+          // 开始倒计时（60秒）
+          let countdown = 60;
+          btn.disabled = true;
+          btn.textContent = `${countdown}秒后重试`;
+
+          const timer = setInterval(() => {
+            countdown--;
+            if (countdown <= 0) {
+              clearInterval(timer);
+              btn.disabled = false;
+              btn.textContent = "获取验证码";
+            } else {
+              btn.textContent = `${countdown}秒后重试`;
+            }
+          }, 1000);
+        } else {
+          alert(result.message || "验证码发送失败");
+        }
+      } catch (error) {
+        console.error("发送验证码失败：", error);
+        alert("验证码发送失败，请稍后重试");
+      }
+    }
+
+    // 验证验证码
+    async function verifyCode() {
+      let phone = document.getElementById("fp_phone").value;
+      let code = document.getElementById("fp_code").value;
+      let role = document.querySelector('input[name="reset_role"]:checked').value;
+
+      if (!phone || !code) {
+        alert("请输入手机号和验证码！");
+        return;
+      }
+
+      try {
+        const response = await fetch("/user/verify_reset_code", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ phone, code, role })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          currentPhone = phone;
+          currentRole = role;
+
+          // 显示步骤2
+          document.getElementById("step1_form").style.display = "none";
+          document.getElementById("step2_form").style.display = "block";
+        } else {
+          alert(result.message || "验证失败");
+        }
+      } catch (error) {
+        console.error("验证失败：", error);
+        alert("验证失败，请稍后重试");
+      }
+    }
+
+    // 重置密码
+    async function resetPassword() {
+      let newPassword = document.getElementById("new_password").value;
+      let confirmPassword = document.getElementById("confirm_password").value;
+
+      if (!newPassword || !confirmPassword) {
+        alert("请输入新密码和确认密码！");
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        alert("两次输入的密码不一致！");
+        return;
+      }
+
+      if (newPassword.length < 11) {
+        alert("密码长度不能少于11位！");
+        return;
+      }
+
+      if (!/^(?=.*[A-Za-z])(?=.*\d).{11,}$/.test(newPassword)) {
+        alert("密码必须包含字母和数字！");
+        return;
+      }
+
+      try {
+        const response = await fetch("/user/reset_password", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            phone: currentPhone,
+            role: currentRole,
+            password: newPassword
+          })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          alert("密码重置成功！请使用新密码登录");
+          window.location.href = "/user";
+        } else {
+          alert(result.message || "密码重置失败");
+        }
+      } catch (error) {
+        console.error("密码重置失败：", error);
+        alert("密码重置失败，请稍后重试");
+      }
+    }
+
+    // 返回步骤1
+    function backToStep1() {
+      document.getElementById("step2_form").style.display = "none";
+      document.getElementById("step1_form").style.display = "block";
+
+      // 清空表单
+      document.getElementById("fp_code").value = "";
+      document.getElementById("new_password").value = "";
+      document.getElementById("confirm_password").value = "";
+    }
+  </script>
 </body>
 </html>

@@ -13,7 +13,10 @@
       "Bash(grep:*)",
       "Bash(ls:*)",
       "Bash(flask db:*)",
-      "Bash(mysql:*)"
+      "Bash(mysql:*)",
+      "Bash(tree:*)",
+      "Bash(pip install:*)",
+      "WebSearch"
     ]
   }
 }

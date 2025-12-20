@@ -1361,39 +1361,6 @@ function processWithdrawal() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    // 获取密码输入框和切换按钮元素（先判空）
-    const passwordInput = document.getElementById('password');
-    const togglePasswordBtn = document.getElementById('togglePassword');
-
-    // 关键：只有两个元素都存在时，才绑定事件
-    if (passwordInput && togglePasswordBtn) {
-        // 为按钮添加点击事件
-        togglePasswordBtn.addEventListener('click', function() {
-            // 获取当前密码框的类型
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-
-            // 切换密码框的类型（显示/隐藏密码）
-            passwordInput.setAttribute('type', type);
-
-            // 获取按钮内的图标元素（同样判空，避免报错）
-            const icon = togglePasswordBtn.querySelector('i');
-            if (icon) { // 新增：判空图标元素
-                // 切换图标（眼睛/眼睛划掉）
-                if (type === 'password') {
-                    icon.classList.remove('fa-eye-slash');
-                    icon.classList.add('fa-eye');
-                } else {
-                    icon.classList.remove('fa-eye');
-                    icon.classList.add('fa-eye-slash');
-                }
-            }
-        });
-    } else {
-        // 可选：调试日志，确认元素不存在的场景
-        console.warn("未找到密码输入框/切换按钮，跳过密码显示/隐藏事件绑定");
-    }
-});
 
 
 /*全局作用域*/

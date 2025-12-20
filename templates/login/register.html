@@ -5,9 +5,7 @@
   <meta charset="utf-8">
   <title>注册 - GreenPoints</title>
   <link rel="stylesheet" href="../../static/css/style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="../../static/css/password.css">
-</head>
+  </head>
 <body>
   <div class="eco-shell">
     <aside class="eco-illustration">
@@ -28,33 +26,30 @@
         <p>系统将根据身份自动生成以 U / M 开头的唯一账号。</p>
       </div>
       
-      <div class="input-group">
-        <label for="role">注册身份</label>
-        <select id="role" class="input">
-          <option value="user">用户</option>
-          <option value="merchant">商户</option>
-        </select>
+      <form onsubmit="register(); return false;">
+        <div class="input-group">
+          <label for="role">注册身份</label>
+          <select id="role" class="input">
+            <option value="user">用户</option>
+            <option value="merchant">商户</option>
+          </select>
 
-        <label for="email">邮箱</label>
-        <input id="email" class="input" placeholder="用于接收通知">
+          <label for="email">邮箱</label>
+          <input id="email" class="input" placeholder="用于接收通知" autocomplete="email">
 
-        <label for="phone">手机号</label>
-        <input id="phone" class="input" placeholder="请输入手机号">
+          <label for="phone">手机号</label>
+          <input id="phone" class="input" placeholder="请输入手机号" autocomplete="tel">
 
-        <label for="password">设置密码</label>
-        <div class="password-container">
-            <input id="password" class="input password-input" type="password" placeholder="至少 11 位，建议包含字母数字">
-            <button type="button" id="togglePassword" class="toggle-password-btn">
-                <i class="fa-solid fa-eye"></i>
-            </button>
+          <label for="password">设置密码</label>
+          <input id="password" class="input" type="password" placeholder="至少 11 位，建议包含字母数字" autocomplete="new-password">
         </div>
-      </div>
 
-      <div class="generated-id">
-        系统生成账号： <b id="generatedId" style="color:#008f64;font-size:18px;"></b>
-      </div>
+        <div class="generated-id">
+          系统生成账号： <b id="generatedId" style="color:#008f64;font-size:18px;"></b>
+        </div>
 
-      <button class="btn" onclick="register()">提交注册</button>
+        <button type="submit" class="btn">提交注册</button>
+      </form>
       <p style="text-align:center;margin-top:16px;"><a class="link" href="{{ url_for('user.index') }}">返回登录</a></p>
     </section>
   </div>
