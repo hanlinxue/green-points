@@ -67,10 +67,10 @@ def merchant_withdraw():
 
 @merchant_bp.route('/merchant_out', methods=['GET', 'POST'])
 def merchant_out():
-    username = session.get("username")
-    if not username:
-        return redirect(url_for("user.index"))
-    return render_template('login/index.html')
+    # 清除session
+    session.clear()
+    # 重定向到用户首页
+    return redirect("/user")
 
 
 @merchant_bp.route('/merchant_info', methods=['GET'])

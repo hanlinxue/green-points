@@ -11,6 +11,15 @@ from utils.redis import get_redis_conn
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
 
+@admin_bp.route('/admin_out', methods=['GET', 'POST'])
+def admin_out():
+    """管理员退出登录"""
+    # 清除session
+    session.clear()
+    # 重定向到用户首页
+    return redirect("/user")
+
+
 @admin_bp.route('/admin_index')
 def admin_index():
     adminname = session.get("adminname")
@@ -144,13 +153,25 @@ def get_users():
         return jsonify({"success": False, "message": "未登录"}), 401
 
     try:
-        # 获取所有未被删除的用户
-        users = User.query.filter_by(isdelete=False).all()
+        # 获取查询参数
+        include_deleted = request.args.get('include_deleted', 'false').lower() == 'true'
+
+        # 根据参数决定是否包含已删除的用户
+        if include_deleted:
+            users = User.query.all()  # 获取所有用户
+        else:
+            users = User.query.filter_by(isdelete=False).all()  # 只获取未删除的用户
+
         user_list = []
 
         for user in users:
-            # 判断用户状态（使用iscancel作为冻结状态）
-            status = "frozen" if user.iscancel else "normal"
+            # 判断用户状态
+            if user.isdelete:
+                status = "deleted"
+            elif user.iscancel:
+                status = "frozen"
+            else:
+                status = "normal"
 
             user_info = {
                 "id": user.id,
@@ -186,15 +207,22 @@ def get_merchants():
         return jsonify({"success": False, "message": "未登录"}), 401
 
     try:
-        # 获取所有未被删除的商户
-        merchants = Merchant.query.filter_by(isdelete=False).all()
+        # 检查是否包含已删除的商户
+        include_deleted = request.args.get('include_deleted', 'false').lower() == 'true'
+
+        # 获取商户列表
+        if include_deleted:
+            merchants = Merchant.query.all()
+        else:
+            merchants = Merchant.query.filter_by(isdelete=False).all()
+
         merchant_list = []
 
         for merchant in merchants:
             # 判断商户状态
-            # 使用iscancel作为冻结状态
-            # 对于新注册的商户，如果没有特殊审核字段，默认为normal状态
-            if merchant.iscancel:
+            if merchant.isdelete:
+                status = "deleted"
+            elif merchant.iscancel:
                 status = "frozen"
             # 注意：如果Merchant模型有审核状态字段，应该在这里处理
             # 暂时使用模拟数据来支持审核功能演示
@@ -212,7 +240,9 @@ def get_merchants():
                 "now_points": merchant.now_points,
                 "all_points": merchant.all_points,
                 "use_points": merchant.use_points,
-                "rdatetime": merchant.rdatetime.strftime("%Y-%m-%d %H:%M:%S") if merchant.rdatetime else None
+                "rdatetime": merchant.rdatetime.strftime("%Y-%m-%d %H:%M:%S") if merchant.rdatetime else None,
+                "is_deleted": merchant.isdelete,
+                "is_frozen": merchant.iscancel
             }
             merchant_list.append(merchant_info)
 
@@ -302,13 +332,34 @@ def delete_user(user_id):
         if not user:
             return jsonify({"success": False, "message": "用户不存在"}), 404
 
-        # 软删除用户
-        user.isdelete = True
+        # 检查是否已被标记为删除
+        if not user.isdelete:
+            return jsonify({"success": False, "message": "只能删除已注销的用户"}), 400
+
+        # 硬删除用户及其相关数据
+        # 删除用户地址
+        from apps.users.models import Address
+        Address.query.filter_by(username=user.username).delete()
+
+        # 删除用户积分流水
+        from apps.users.models import PointsFlow
+        PointsFlow.query.filter_by(username=user.username).delete()
+
+        # 删除用户出行记录
+        from apps.users.models import UserTrip
+        UserTrip.query.filter_by(username=user.username).delete()
+
+        # 删除用户订单
+        from apps.merchants.models import Order
+        Order.query.filter_by(user_username=user.username).delete()
+
+        # 硬删除用户
+        db.session.delete(user)
         db.session.commit()
 
         return jsonify({
             "success": True,
-            "message": "用户已删除"
+            "message": "用户已彻底删除"
         })
     except Exception as e:
         db.session.rollback()
@@ -393,13 +444,34 @@ def delete_merchant(merchant_id):
         if not merchant:
             return jsonify({"success": False, "message": "商户不存在"}), 404
 
-        # 软删除商户
-        merchant.isdelete = True
+        # 检查是否已被标记为删除
+        if not merchant.isdelete:
+            return jsonify({"success": False, "message": "只能删除已注销的商户"}), 400
+
+        # 硬删除商户及其相关数据
+        # 删除商户地址
+        from apps.users.models import Address
+        Address.query.filter_by(username=merchant.username).delete()
+
+        # 删除商户积分流水
+        from apps.users.models import PointsFlow
+        PointsFlow.query.filter_by(username=merchant.username).delete()
+
+        # 删除商户的商品
+        from apps.merchants.models import Goods
+        Goods.query.filter_by(merchant_username=merchant.username).delete()
+
+        # 删除商户的订单
+        from apps.merchants.models import Order
+        Order.query.filter_by(merchant_username=merchant.username).delete()
+
+        # 硬删除商户
+        db.session.delete(merchant)
         db.session.commit()
 
         return jsonify({
             "success": True,
-            "message": "商户已删除"
+            "message": "商户已彻底删除"
         })
     except Exception as e:
         db.session.rollback()

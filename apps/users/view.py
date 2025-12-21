@@ -278,6 +278,12 @@ def login():
             if not user:
                 return jsonify({"message": "用户不存在"}), 400
 
+            if user.isdelete:
+                return jsonify({"message": "账号已被删除，无法登录"}), 403
+
+            if user.iscancel:
+                return jsonify({"message": "账号已被冻结，无法登录"}), 403
+
             if user.password != password:
                 return jsonify({"message": "密码错误"}), 400
             # 登录成功 → 写 session
@@ -296,6 +302,12 @@ def login():
             merchant = Merchant.query.filter_by(username=account_role).first()
             if not merchant:
                 return jsonify({"message": "商家不存在"}), 400
+
+            if merchant.isdelete:
+                return jsonify({"message": "账号已被删除，无法登录"}), 403
+
+            if merchant.iscancel:
+                return jsonify({"message": "账号已被冻结，无法登录"}), 403
 
             if merchant.password != password:
                 return jsonify({"message": "密码错误"}), 400
@@ -1602,7 +1614,68 @@ def submit_user_trip():
 # 退出登录
 @user_bp.route('/user_out', methods=['GET', 'POST'])
 def user_out():
-    return render_template('login/index.html')
+    """用户退出登录"""
+    # 清除session
+    session.clear()
+    # 重定向到用户首页
+    return redirect("/user")
+
+
+@user_bp.route('/api/delete_account', methods=['POST'])
+def delete_account():
+    """用户注销账号（软删除）"""
+    username = session.get("username")
+    if not username:
+        return jsonify({"success": False, "message": "用户未登录"}), 401
+
+    try:
+        data = request.get_json()
+        password = data.get('password')
+
+        if not password:
+            return jsonify({"success": False, "message": "请输入密码"}), 400
+
+        # 获取用户信息并验证密码
+        # 根据用户名判断类型
+        if username.startswith('U'):
+            user = User.query.filter_by(username=username).first()
+            if not user or user.password != password:
+                return jsonify({"success": False, "message": "密码错误"}), 400
+
+            # 软删除用户
+            user.isdelete = True
+            user.iscancel = True  # 同时冻结
+
+        elif username.startswith('M'):
+            merchant = Merchant.query.filter_by(username=username).first()
+            if not merchant or merchant.password != password:
+                return jsonify({"success": False, "message": "密码错误"}), 400
+
+            # 软删除商户
+            merchant.isdelete = True
+            merchant.iscancel = True  # 同时冻结
+
+        else:
+            return jsonify({"success": False, "message": "不支持的账号类型"}), 400
+
+        # 提交事务
+        db.session.commit()
+
+        # 清除session
+        session.clear()
+
+        return jsonify({
+            "success": True,
+            "message": "账号已注销"
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"注销账号失败：{str(e)}")
+        return jsonify({
+            "success": False,
+            "message": "注销失败，请稍后重试"
+        }), 500
 
 
 # API: 获取用户地址列表

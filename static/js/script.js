@@ -696,7 +696,9 @@ function switchUserTab(type) {
  *************************************************/
 async function loadUserList() {
   try {
-    const res = await fetch("/admin/api/users");
+    const includeDeleted = document.getElementById("includeDeletedCheckbox")?.checked || false;
+    const url = includeDeleted ? "/admin/api/users?include_deleted=true" : "/admin/api/users";
+    const res = await fetch(url);
     const data = await res.json();
     window._allUsers = data.users;
     renderUserTable(data.users);
@@ -710,7 +712,9 @@ async function loadUserList() {
  *************************************************/
 async function loadMerchantList() {
   try {
-    const res = await fetch("/admin/api/merchants");
+    const includeDeleted = document.getElementById("includeDeletedCheckbox")?.checked || false;
+    const url = includeDeleted ? "/admin/api/merchants?include_deleted=true" : "/admin/api/merchants";
+    const res = await fetch(url);
     const data = await res.json();
     window._allMerchants = data.merchants;
     renderMerchantTable(data.merchants);
@@ -736,20 +740,42 @@ function renderUserTable(list) {
   list.forEach(u => {
     const row = document.createElement("tr");
 
+    // 根据状态显示不同的样式和操作按钮
+    let statusClass = "";
+    let statusText = "";
+    let actionButtons = "";
+
+    if (u.status === "deleted" || u.is_deleted) {
+      statusClass = "red";
+      statusText = "已删除";
+      // 已删除的用户只能进行删除
+      actionButtons = `<button class="btn small danger" onclick="deleteUser('${u.id}')">删除</button>`;
+    } else if (u.status === "frozen" || u.is_frozen) {
+      statusClass = "orange";
+      statusText = "已冻结";
+      actionButtons = `
+        <button class="btn small" onclick="unfreezeUser('${u.id}')">解冻</button>
+        <button class="btn small danger" onclick="deleteUser('${u.id}')">删除</button>
+      `;
+    } else {
+      statusText = "正常";
+      actionButtons = `
+        <button class="btn small" onclick="freezeUser('${u.id}')">冻结</button>
+        <button class="btn small danger" onclick="deleteUser('${u.id}')">删除</button>
+      `;
+    }
+
     row.innerHTML = `
       <td>${u.username}</td>
       <td>${u.email || "—"}</td>
       <td>
-        <span class="pill ${u.status === "frozen" ? "orange" : ""}">
-          ${u.status === "frozen" ? "已冻结" : "正常"}
+        <span class="pill ${statusClass}">
+          ${statusText}
         </span>
       </td>
       <td>
         <span>
-          <button class="btn small" onclick="${
-            u.status === "frozen" ? `unfreezeUser('${u.id}')` : `freezeUser('${u.id}')`
-          }">${u.status === "frozen" ? '解冻' : '冻结'}</button>
-          <button class="btn small danger" onclick="deleteUser('${u.id}')">删除</button>
+          ${actionButtons}
         </span>
       </td>
     `;
@@ -775,35 +801,47 @@ function renderMerchantTable(list) {
   list.forEach(m => {
     const row = document.createElement("tr");
 
-    const statusPill =
-      m.status === "pending" ? "pill orange" :
-      m.status === "frozen" ? "pill danger" :
-      "pill";
+    // 根据状态显示不同的样式和操作按钮
+    let statusClass = "";
+    let statusText = "";
+    let actionButtons = "";
 
-    const statusText =
-      m.status === "pending" ? "待审核" :
-      m.status === "frozen" ? "已冻结" :
-      "正常";
+    if (m.status === "deleted" || m.is_deleted) {
+      statusClass = "pill red";
+      statusText = "已删除";
+      // 已删除的商户只能进行删除
+      actionButtons = `<button class="btn small danger" onclick="deleteMerchant('${m.id}')">删除</button>`;
+    } else if (m.status === "pending") {
+      statusClass = "pill orange";
+      statusText = "待审核";
+      actionButtons = `
+        <button class="btn small" onclick="approveMerchant('${m.id}')">通过</button>
+        <button class="btn small danger" onclick="rejectMerchant('${m.id}')">拒绝</button>
+      `;
+    } else if (m.status === "frozen" || m.is_frozen) {
+      statusClass = "pill danger";
+      statusText = "已冻结";
+      actionButtons = `
+        <button class="btn small" onclick="unfreezeMerchant('${m.id}')">解冻</button>
+        <button class="btn small danger" onclick="deleteMerchant('${m.id}')">删除</button>
+      `;
+    } else {
+      statusClass = "pill";
+      statusText = "正常";
+      actionButtons = `
+        <button class="btn small danger" onclick="freezeMerchant('${m.id}')">冻结</button>
+        <button class="btn small danger" onclick="deleteMerchant('${m.id}')">删除</button>
+      `;
+    }
 
     row.innerHTML = `
       <td>${m.username}</td>
       <td>${m.phone || "—"}</td>
       <td>
-        <span class="${statusPill}">${statusText}</span>
+        <span class="${statusClass}">${statusText}</span>
       </td>
       <td>
-          ${
-            m.status === "pending"
-              ? `<button class="btn small" onclick="approveMerchant('${m.id}')">通过</button>
-                  <button class="btn small danger" onclick="rejectMerchant('${m.id}')">拒绝</button>`
-              : ""
-          }
-          ${
-            m.status === "frozen"
-              ? `<button class="btn small" onclick="unfreezeMerchant('${m.id}')">解冻</button>`
-              : `<button class="btn small danger" onclick="freezeMerchant('${m.id}')" >冻结</button>`
-          }
-          <button class="btn small danger" onclick="deleteMerchant('${m.id}')">删除</button>
+        ${actionButtons}
       </td>
     `;
 
@@ -824,8 +862,19 @@ async function unfreezeUser(id) {
 }
 async function deleteUser(id) {
   if (!confirm("确定删除该用户？")) return;
-  await fetch(`/admin/api/users/${id}`, {method:"DELETE"});
-  loadUserList();
+  try {
+    const response = await fetch(`/admin/api/users/${id}`, {method:"DELETE"});
+    const data = await response.json();
+    if (!response.ok) {
+      alert('删除失败: ' + (data.message || '未知错误'));
+      return;
+    }
+    alert('删除成功');
+    loadUserList();
+  } catch (error) {
+    console.error('删除用户失败:', error);
+    alert('删除失败，请稍后重试');
+  }
 }
 
 /*************************************************
@@ -849,8 +898,19 @@ async function unfreezeMerchant(id) {
 }
 async function deleteMerchant(id) {
   if (confirm("确定要删除这个商户吗？")) {
-    await fetch(`/admin/api/merchants/${id}`, {method:"DELETE"});
-    loadMerchantList();
+    try {
+      const response = await fetch(`/admin/api/merchants/${id}`, {method:"DELETE"});
+      const data = await response.json();
+      if (!response.ok) {
+        alert('删除失败: ' + (data.message || '未知错误'));
+        return;
+      }
+      alert('删除成功');
+      loadMerchantList();
+    } catch (error) {
+      console.error('删除商户失败:', error);
+      alert('删除失败，请稍后重试');
+    }
   }
 }
 
@@ -872,6 +932,15 @@ function filterAccountList() {
       (m.username + (m.email || "") + (m.phone || "")).toLowerCase().includes(q)
     ));
   }
+}
+
+/*************************************************
+ * 切换显示已删除账号
+ *************************************************/
+function toggleDeletedAccounts() {
+  // 重新加载用户和商户列表
+  loadUserList();
+  loadMerchantList();
 }
 
 

@@ -44,6 +44,12 @@
           <h2>搜索账户</h2>
         </div>
         <input id="searchInput" class="input" placeholder="输入用户名 / 商户名 / 电话 / 邮箱…" oninput="filterAccountList()">
+        <div style="margin-top: 10px;">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="includeDeletedCheckbox" onchange="toggleDeletedAccounts()" style="transform: scale(1.2);">
+            <span>显示已注销的账号</span>
+          </label>
+        </div>
       </div>
 
       <!-- 用户列表 -->

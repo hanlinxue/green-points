@@ -107,6 +107,35 @@
       box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
     }
 
+    #welcomeBar .account-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    #welcomeBar .delete-account-btn {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #ffffff;
+      padding: 8px 20px;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-block;
+      -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+    }
+
+    #welcomeBar .delete-account-btn:hover {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: rgba(239, 68, 68, 0.5);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+    }
+
     #welcomeBar span:not(.role-badge):not(strong) {
       color: rgba(255, 255, 255, 0.9);
       font-size: 14px;
@@ -191,6 +220,28 @@
       infoType = '管理员ID：';
     }
 
+    // 构建操作按钮
+    let logoutUrl = '/user/user_out';  // 默认用户退出登录URL
+
+    // 根据角色设置不同的退出登录URL
+    if (userInfo.role === 'admin') {
+      logoutUrl = '/admin/admin_out';
+    } else if (userInfo.role === 'merchant') {
+      logoutUrl = '/merchant/merchant_out';
+    }
+
+    let actionButtons = `<a href="${logoutUrl}" class="logout-btn">退出登录</a>`;
+
+    // 只有用户和商户显示注销账号按钮
+    if (userInfo.role === 'user' || userInfo.role === 'merchant') {
+      actionButtons = `
+        <div class="account-actions">
+          <button class="delete-account-btn" onclick="deleteAccount()">注销账号</button>
+          <a href="${logoutUrl}" class="logout-btn">退出登录</a>
+        </div>
+      `;
+    }
+
     welcomeBar.innerHTML = `
       <div class="welcome-info">
         <span>你好，</span>
@@ -199,7 +250,7 @@
         <strong>${userInfo.name}</strong>
       </div>
       <div>
-        <a href="/user/user_out" class="logout-btn">退出登录</a>
+        ${actionButtons}
       </div>
     `;
 
@@ -262,3 +313,45 @@
   }
 
 })();
+
+// 删除账号功能
+window.deleteAccount = function() {
+  if (!confirm('警告：注销账号将会永久删除您的所有数据，包括：\n\n' +
+                  '• 个人信息\n' +
+                  '• 地址信息\n' +
+                  '• 积分记录\n' +
+                  '• 订单记录\n\n' +
+                  '此操作不可恢复，确定要继续吗？')) {
+    return;
+  }
+
+  // 确认密码
+  const password = prompt('请输入密码确认注销账号：');
+  if (!password) {
+    return;
+  }
+
+  // 发送注销请求
+  fetch('/user/api/delete_account', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ password: password })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert('账号注销成功！即将跳转到首页...');
+      setTimeout(() => {
+        window.location.href = '/user';
+      }, 2000);
+    } else {
+      alert('注销失败：' + (data.message || '未知错误'));
+    }
+  })
+  .catch(error => {
+    console.error('注销账号失败:', error);
+    alert('注销失败，请稍后重试');
+  });
+};
