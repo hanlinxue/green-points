@@ -217,15 +217,26 @@ function goAddressPage() {
       let html = '<div class="points-history-list">';
 
       historyData.forEach(item => {
-        const changeTypeClass = item.change_type === '获得' ? 'success' : 'danger';
-        const changeTypeIcon = item.change_type === '获得' ? '↑' : '↓';
-        const pointsSign = item.change_type === '获得' ? '+' : '';
+        // 将英文的change_type转换成中文
+        const changeTypeMap = {
+          'daily_checkin': '每日签到',
+          'trip_approved': '出行奖励',
+          'trip_submitted': '提交出行',
+          'exchange': '兑换商品',
+          'withdrawal': '商户提现',
+          'refund': '退款退回'
+        };
+        const changeTypeText = changeTypeMap[item.change_type] || item.change_type;
+
+        const changeTypeClass = item.points > 0 ? 'success' : 'danger';
+        const changeTypeIcon = item.points > 0 ? '↑' : '↓';
+        const pointsSign = item.points > 0 ? '+' : '';
 
         html += `
           <div class="points-flow-item">
             <div class="flow-header">
               <span class="flow-type flow-type-${changeTypeClass}">
-                ${changeTypeIcon} ${item.change_type}
+                ${changeTypeIcon} ${changeTypeText}
               </span>
               <span class="flow-time">${item.create_time}</span>
             </div>

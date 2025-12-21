@@ -691,10 +691,10 @@ def get_exchange_orders():
         return jsonify({"error": "未登录，请先登录！"}), 401
 
     try:
-        # 2. 筛选兑换相关记录（reason=兑换商品 + goods_id不为空）
+        # 2. 筛选兑换相关记录（change_type='exchange' 且 goods_id不为空）
         order_list = PointsFlow.query.filter(
             PointsFlow.username == username,
-            PointsFlow.reason == "兑换商品",
+            PointsFlow.change_type == "exchange",
             PointsFlow.goods_id.isnot(None)  # 仅筛选有商品ID的兑换记录
         ).order_by(PointsFlow.create_time.desc()).all()
 
@@ -765,6 +765,8 @@ def create_exchange_order():
 
         # 扣除用户积分
         user.now_points -= total_points_needed
+        # 更新已使用积分（use_points是正数）
+        user.use_points += total_points_needed
 
         # 减少商品库存
         goods.stock -= quantity
@@ -772,7 +774,7 @@ def create_exchange_order():
         # 创建积分流水记录
         points_flow = PointsFlow(
             username=username,
-            change_type="扣除",
+            change_type="exchange",
             reason="兑换商品",
             points=-total_points_needed,  # 负数表示扣除
             balance=user.now_points,  # 变动后的积分余额
